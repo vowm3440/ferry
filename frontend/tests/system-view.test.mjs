@@ -78,7 +78,7 @@ test('sysProxyTile：切换进行中不允许再点；端口未知时不编造�
 
 test('persistenceNote：按后端是否公布 settings.persist 说明保存方式', () => {
   assert.equal(persistenceNote({ capsLoaded: false, persistent: false, demo: false }), '');
-  assert.match(persistenceNote({ capsLoaded: true, persistent: true, demo: false }), /加密保存在本机/);
+  assert.equal(persistenceNote({ capsLoaded: true, persistent: true, demo: false }), '');
   assert.match(persistenceNote({ capsLoaded: true, persistent: false, demo: false }), /只在本次运行期间有效/);
   assert.match(persistenceNote({ capsLoaded: true, persistent: false, demo: true }), /演示模式/);
   // 演示模式优先：即使能力列表里有持久化，也不说「保存在本机」。

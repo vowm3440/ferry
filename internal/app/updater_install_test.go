@@ -30,9 +30,9 @@ func TestInstallUpdateVerifiesDigestLaunchesInstallerAndBlocksTampering(t *testi
 			return
 		}
 		manifest, _ := json.Marshal(map[string]any{
-			"version": "0.3.0",
+			"version": "99.0.0",
 			"channel": "stable",
-			"url":     srv.URL + "/Ferry-0.3.0-windows-amd64-setup.exe",
+			"url":     srv.URL + "/Ferry-99.0.0-windows-amd64-setup.exe",
 			"sha256":  hex.EncodeToString(sum[:]),
 			"size":    len(payload),
 		})
@@ -77,7 +77,7 @@ func TestInstallUpdateVerifiesDigestLaunchesInstallerAndBlocksTampering(t *testi
 		t.Fatalf("idempotent ApplyUpdate failed: %v", err)
 	}
 
-	expectedFile := filepath.Join(stageDir, "Ferry-0.3.0.exe")
+	expectedFile := filepath.Join(stageDir, "Ferry-99.0.0.exe")
 	if _, err := os.Stat(expectedFile); err != nil {
 		t.Fatalf("expected .exe staged file %s: %v", expectedFile, err)
 	}
@@ -127,9 +127,9 @@ func TestCheckUpdateSupportsStaticCompanionSigFile(t *testing.T) {
 	defer srv.Close()
 
 	manifestBytes, _ = json.Marshal(map[string]any{
-		"version": "0.2.0",
+		"version": "99.0.0",
 		"channel": "stable",
-		"url":     srv.URL + "/Ferry-0.2.0-windows-amd64-setup.exe",
+		"url":     srv.URL + "/Ferry-99.0.0-windows-amd64-setup.exe",
 		"sha256":  hex.EncodeToString(sum[:]),
 		"size":    5,
 	})
@@ -143,7 +143,7 @@ func TestCheckUpdateSupportsStaticCompanionSigFile(t *testing.T) {
 		StageDir:    filepath.Join(t.TempDir(), "updates"),
 	})
 	info, err := s.System().CheckUpdate(context.Background(), "stable")
-	if err != nil || !info.Available || info.Version != "0.2.0" {
+	if err != nil || !info.Available || info.Version != "99.0.0" {
 		t.Fatalf("companion .sig CheckUpdate failed: %v %+v", err, info)
 	}
 }

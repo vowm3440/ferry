@@ -33,7 +33,7 @@
 
     if (state === null) {
       return core.loadError === ''
-        ? { tone: '', text: tr('正在读取状态…', 'Loading status…'), sub: tr('正在向内核请求当前状态', 'Querying core state') }
+        ? { tone: '', text: tr('正在读取状态…', 'Loading status…'), sub: '' }
         : { tone: 'err', text: tr('状态未知', 'Status Unknown'), sub: tr('无法读取内核状态', 'Unable to read core status') };
     }
     if (core.pending === 'restart') return { tone: 'warn', text: tr('正在重启…', 'Restarting…'), sub: modeText };
@@ -48,9 +48,9 @@
       return { tone: 'ok', text: tr('内核运行中', 'Core Running'), sub: tr(`${modeText} · 已运行 ${dur}`, `${modeText} · Up ${dur}`) };
     }
     if (state.status === CORE_STATUS_ERROR) {
-      return { tone: 'err', text: tr('内核异常', 'Core Error'), sub: tr(`${modeText} · 可尝试重新启动`, `${modeText} · Try restarting`) };
+      return { tone: 'err', text: tr('内核异常', 'Core Error'), sub: modeText };
     }
-    return { tone: '', text: tr('内核未启动', 'Core Stopped'), sub: tr(`${modeText} · 点击左侧按钮启动`, `${modeText} · Click power to start`) };
+    return { tone: '', text: tr('内核未启动', 'Core Stopped'), sub: modeText };
   });
 
   /**
@@ -152,7 +152,6 @@
       <span class="cc">—</span>
       <div class="meta">
         <div class="name">{tr('尚未导入节点', 'No Nodes Imported')}</div>
-        <div class="desc">{tr('在「订阅」页粘贴节点链接即可导入', 'Import share links or subscriptions in Subscriptions')}</div>
       </div>
       <button type="button" class="btn sm" onclick={() => nav.go('subs')}>{tr('前往订阅', 'Subscriptions')}</button>
     {:else}
@@ -163,9 +162,7 @@
       </div>
       {#if core.mode === 'direct'}
         <span class="pill">{tr('直连模式不经过节点', 'Bypassed in Direct Mode')}</span>
-      {:else if !core.running}
-        <span class="pill">{tr('启动后使用', 'Active on start')}</span>
-      {:else if !selection.automatic}
+      {:else if core.running && !selection.automatic}
         <span class="lat {latencyLevel(selection.latencyMs)}">{(void i18n.locale, formatLatency(selection.latencyMs))}</span>
       {/if}
       <button type="button" class="btn sm" onclick={() => nav.go('nodes')}>{tr('切换', 'Switch')}</button>

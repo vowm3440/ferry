@@ -78,13 +78,12 @@
 <div class="card import">
   <div class="card-head">
     <span>{tr('粘贴内容', 'Paste Content')}</span>
-    <span class="muted">{tr('分享链接或整段配置', 'Share URIs or full config')}</span>
   </div>
 
   <div class="fields">
     <label class="field">
-      <span class="label">{tr('名称（可留空，默认「手动导入」）', 'Name (optional; defaults to "Manual Import")')}</span>
-      <input class="control" id="sub-name" type="text" maxlength="64" autocomplete="off" bind:value={name} />
+      <span class="label">{tr('名称', 'Name')}</span>
+      <input class="control" id="sub-name" type="text" maxlength="64" autocomplete="off" placeholder={tr('手动导入', 'Manual Import')} bind:value={name} />
     </label>
 
     <label class="field">
@@ -129,7 +128,7 @@
   {/if}
 
   <div class="actions">
-    <span class="hint muted">{tr('内容只交给本机后端解析；界面不保存，导入后输入框会被清空。', 'Parsed locally by backend; not stored in UI and cleared after import.')}</span>
+    <span class="spacer"></span>
     <button type="button" class="btn sm ghost" disabled={text === ''} onclick={clear}>{tr('清空', 'Clear')}</button>
     <button type="button" class="btn sm primary" disabled={unavailable} aria-disabled={subs.importing} onclick={() => void submit()}>
       {subs.importing ? tr('导入中…', 'Importing…') : tr('导入', 'Import')}
@@ -170,10 +169,8 @@
     gap: 8px;
   }
 
-  .hint {
+  .spacer {
     flex: 1;
-    min-width: 160px;
-    font-size: 12px;
   }
 
   .grow {

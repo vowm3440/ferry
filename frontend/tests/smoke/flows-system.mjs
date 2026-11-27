@@ -109,11 +109,11 @@ async function settingsSection(page, fake) {
   await goPage(page, 7);
   await page.waitFor(`document.querySelector('[data-action="backup-export"]') !== null`);
   check('S3 标题是「设置」', (await page.text('h1')) === '设置');
-  const note = await page.text('[data-note="storage"]');
-  check('S3 有持久化能力时说明加密保存在本机', note.includes('加密保存在本机'), note);
+  const noteCount = await page.eval(`document.querySelectorAll('[data-note="storage"]').length`);
+  check('S3 有持久化能力时不显示冗余的顶部保存说明', noteCount === 0, String(noteCount));
   const main = await page.text('main');
   check('S3 设置页没有过期的阶段文案', !STALE.test(main), main.match(STALE)?.[0] ?? '');
-  check('S3 写明语言、在线更新、TUN 与服务的真实状态', ['支持简体中文与 English', '未配置生产更新地址与签名公钥', '不能安装服务，也不能启用 TUN'].every((item) => main.includes(item)));
+  check('S3 正常显示语言、在线更新、TUN 与服务的真实状态', ['简体中文', 'English', '不能安装服务，也不能启用 TUN'].every((item) => main.includes(item)));
   await page.click('[aria-label="语言"] [role="radio"]:nth-child(2)');
   await sleep(120);
   check('S3 切换为 English 后界面标题即时变为英文', (await page.text('h1')) === 'Settings', await page.text('h1'));

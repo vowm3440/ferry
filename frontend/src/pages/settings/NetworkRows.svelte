@@ -23,12 +23,6 @@
   const canAutomate = $derived(caps.has(CAP_AUTOMATION));
   const canTools = $derived(caps.has(CAP_SYSTEM_TOOLS));
 
-  const lanDesc = $derived(
-    value.allowLan
-      ? tr('监听 0.0.0.0：局域网内的其他设备可以使用本机代理，请确认防火墙规则', 'Listening on 0.0.0.0: LAN devices can use this proxy; check firewall rules')
-      : tr('仅监听 127.0.0.1；开启后监听 0.0.0.0，需配合防火墙规则', 'Listening on 127.0.0.1 only; enable to bind 0.0.0.0'),
-  );
-
   async function probeInbound(): Promise<void> {
     const backend = connection.backend;
     if (backend === null || probing) return;
@@ -46,7 +40,6 @@
 
 <SettingRow
   title={tr('混合端口', 'Mixed Port')}
-  desc={tr('HTTP / SOCKS5 共用的本机入站端口', 'Local HTTP / SOCKS5 shared inbound port')}
   error={portInvalid ? tr('请输入 1 到 65535 之间的整数', 'Enter an integer between 1 and 65535') : ''}
 >
   <div class="port-row">
@@ -71,7 +64,7 @@
     {/if}
   </div>
 </SettingRow>
-<SettingRow title={tr('允许局域网连接', 'Allow LAN Connections')} desc={lanDesc}>
+<SettingRow title={tr('允许局域网连接', 'Allow LAN Connections')}>
   <Switch
     checked={value.allowLan}
     label={tr('允许局域网连接', 'Allow LAN Connections')}
@@ -81,9 +74,7 @@
 </SettingRow>
 <SettingRow
   title={tr('启动时设置系统代理', 'Set System Proxy on Start')}
-  desc={canAutomate
-    ? tr('内核启动成功后自动开启 Windows 系统代理，停止时自动恢复', 'Automatically enable Windows system proxy when core starts and restore on stop')
-    : tr('当前版本不会自动设置；内核启动后可在概览页手动开启系统代理', 'Not automatic in this backend; enable manually from Overview')}
+  desc={canAutomate ? '' : tr('当前版本不提供', 'Unavailable in this backend')}
   tag={canAutomate ? '' : tr('未开放', 'Unavailable')}
 >
   <Switch

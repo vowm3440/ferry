@@ -22,7 +22,9 @@
 1. **在线更新源与签名公钥已配置**：
    - `internal/release/update.go` 已配置 GitHub Releases 更新源 `https://github.com/vowm3440/ferry/releases/latest/download/manifest-{channel}.json` 与项目专属 `ed25519` 公钥（`Nw03fbVL3Yyy1b5YFUZUCJNUa6re558iL0NFjj+aSdU=`）。
    - 配套签名脚本 `scripts/sign-release.go` 支持一键生成 `manifest-<channel>.json` 与 `.sig` 分离签名文件；对应私钥仅离线保存在本地 `.keys/`（已排除于 Git 与源码归档之外）。
-2. **安装包与便携包构建已就绪**：
-   - `scripts/package.ps1` 自动识别 NSIS（`makensis.exe`）并产出 `Ferry-<ver>-windows-amd64-setup.exe` 安装程序、便携压缩包、GPL 完整对应源码归档与 `SHA256SUMS.txt`。
+2. **安装包、实机稳定性闭环与自动化流水线已就绪**：
+   - `scripts/build.ps1` 统一通过 `-ldflags` 向 `internal/release.Version` 注入版本号；`scripts/test.ps1` 完整串联前端检查/单测/无头冒烟测试、Go 源码规范、双标签单测与真实子进程崩溃恢复验证；`scripts/verify-machine.ps1` 提供实机一键自检。
+   - `Router` 支持退出时优雅停机服务态内核、服务 PID 变更触发自动恢复与跨模式连续日志游标；二次启动直接唤醒已驻留托盘窗口；应用内更新通过 `ShellExecuteW` 拉起管理员安装包，NSIS 安装脚本自动停旧进程并调用 `ferry-core.exe refresh-installed-service` 同步服务二进制与 GUI 哈希。
+   - `.github/workflows/ci.yml` 与 `.github/workflows/release.yml` 已配置 `windows-latest` 自动构建、全量测试、打包与 `ed25519` 签名发布流水线。
 3. **日常发版人工核对**：
    - 每次大版本发布前建议在实机核对 `FerryCore` 系统服务 + TUN 网卡接管及第三方客户端配置互导。

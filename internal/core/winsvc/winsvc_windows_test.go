@@ -32,3 +32,22 @@ func TestStageServiceValidationAndCopyAtomic(t *testing.T) {
 		t.Fatal("relative source path must be rejected")
 	}
 }
+
+func TestRefreshIfInstalledValidation(t *testing.T) {
+	if err := RefreshIfInstalled("relative\\ferry-core.exe"); err == nil {
+		t.Fatal("relative source path must be rejected")
+	}
+	missing := filepath.Join(t.TempDir(), "missing-ferry-core.exe")
+	if err := RefreshIfInstalled(missing); err == nil {
+		t.Fatal("missing source binary must be rejected")
+	}
+	dir := t.TempDir()
+	coreExe := filepath.Join(dir, "ferry-core.exe")
+	if err := os.WriteFile(coreExe, []byte("core-binary"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Point ProgramData meta check via non-existent metadata path helper so test stays unprivileged & side-effect free.
+	if err := refreshIfInstalledAt(coreExe, filepath.Join(dir, "missing-service-meta.json")); err != nil {
+		t.Fatalf("missing service metadata should be a clean no-op, got %v", err)
+	}
+}

@@ -7,8 +7,10 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"ferry/internal/app"
@@ -19,14 +21,18 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+type launchOptions struct {
+	deepLink            string
+	afterServiceInstall bool
+	autoStartCore       bool
+	restoreSysProxy     bool
+}
+
 func main() {
-	deepLinkArg := findDeepLinkArg(os.Args[1:])
-	lock, err := instance.Acquire()
+	opts := parseLaunchOptions(os.Args[1:])
+	lock, err := acquireInstanceLock(opts.afterServiceInstall)
 	if err != nil {
-		if errors.Is(err, instance.ErrRunning) && deepLinkArg != "" {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			defer cancel()
-			_ = instance.ForwardDeepLink(ctx, deepLinkArg)
+		if handleRunningInstance(err, opts.deepLink) {
 			return
 		}
 		startupError(err)
@@ -50,12 +56,33 @@ func main() {
 		return
 	}
 	session.SetServiceController(app.NewWindowsServiceController(executable, coreExe, router.StopUserProcess))
-	runDesktop(session, router, deepLinkArg)
+	runDesktop(session, router, lock, executable, opts)
 }
 
-func runDesktop(session *app.Session, router *ipc.Router, initialDeepLink string) {
+func handleRunningInstance(err error, deepLink string) bool {
+	if !errors.Is(err, instance.ErrRunning) {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if deepLink != "" {
+		return instance.ForwardDeepLink(ctx, deepLink) == nil
+	}
+	return instance.ForwardActivate(ctx) == nil
+}
+
+func acquireInstanceLock(waitForHandoff bool) (*instance.Lock, error) {
+	if waitForHandoff {
+		return instance.AcquireWithTimeout(10 * time.Second)
+	}
+	return instance.Acquire()
+}
+
+func runDesktop(session *app.Session, router *ipc.Router, lock *instance.Lock, executable string, opts launchOptions) {
 	core, nodes, settings := session.Services()
 	ctx, cancel := context.WithCancel(context.Background())
+	var stopOnce sync.Once
+	shutdownAll := func() { stopOnce.Do(func() { shutdown(cancel, session, router) }) }
 	desktop := application.New(application.Options{
 		Name: "Ferry", Description: "轻量 Windows 代理客户端",
 		Services: []application.Service{
@@ -68,21 +95,57 @@ func runDesktop(session *app.Session, router *ipc.Router, initialDeepLink string
 		},
 		Assets:     application.AssetOptions{Handler: application.AssetFileServerFS(ui.Assets())},
 		Windows:    devToolsOptions(),
-		OnShutdown: func() { shutdown(cancel, session, router) },
+		OnShutdown: shutdownAll,
 	})
 	session.SetEmitter(func(name string, value any) { desktop.Event.Emit(name, value) })
 	go session.RunBackground(ctx)
 	cfg, _ := settings.Get(ctx)
-	winCtrl := newDesktopWindowController(desktop, cfg.StartMinimized, cfg.Lightweight)
+	startMinimized := cfg.StartMinimized && !opts.afterServiceInstall
+	winCtrl := newDesktopWindowController(desktop, startMinimized, cfg.Lightweight)
 	session.SetLightweightHook(func(on bool) error { winCtrl.SetLightweight(on); return nil })
 	session.SetUpdateInstaller(nil, func() { winCtrl.MarkQuitting(); desktop.Quit() })
+	session.SetServiceRestarter(makeServiceRestarter(executable, winCtrl, shutdownAll, lock.Close, desktop.Quit))
 	setupTray(desktop, winCtrl, session, cfg.Language)
-	startDeepLinkListener(ctx, desktop, winCtrl, initialDeepLink)
+	startDeepLinkListener(ctx, desktop, winCtrl, opts.deepLink)
+	if opts.afterServiceInstall && opts.autoStartCore {
+		go autoStartPostServiceInstall(ctx, desktop, core, session, opts.restoreSysProxy)
+	}
 	go emitSnapshots(ctx, desktop, core, session, winCtrl)
 	if err := desktop.Run(); err != nil {
-		shutdown(cancel, session, router)
+		shutdownAll()
 		slog.Error("无法启动 Ferry 窗口")
 	}
+}
+
+func makeServiceRestarter(executable string, winCtrl *windowController, shutdownAll func(), releaseLock func() error, quit func()) func(bool, bool) error {
+	return func(startCore, restoreProxy bool) error {
+		args := []string{"--after-service-install"}
+		if startCore {
+			args = append(args, "--auto-start-core")
+		}
+		if restoreProxy {
+			args = append(args, "--restore-sysproxy")
+		}
+		go func() {
+			time.Sleep(350 * time.Millisecond)
+			winCtrl.MarkQuitting()
+			shutdownAll()
+			_ = releaseLock()
+			_ = exec.Command(executable, args...).Start()
+			quit()
+			time.AfterFunc(3*time.Second, func() { os.Exit(0) })
+		}()
+		return nil
+	}
+}
+
+func autoStartPostServiceInstall(ctx context.Context, desktop *application.App, core *app.Core, session *app.Session, restoreProxy bool) {
+	startCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	_ = session.AutoStartAfterServiceInstall(startCtx, restoreProxy)
+	statusCtx, statusCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer statusCancel()
+	desktop.Event.Emit("core:state", core.Status(statusCtx))
 }
 
 func shutdown(cancel context.CancelFunc, session *app.Session, router *ipc.Router) {
@@ -113,37 +176,62 @@ func emitSnapshots(ctx context.Context, desktop *application.App, core *app.Core
 		recoveryCtx, recoveryCancel := context.WithTimeout(ctx, 15*time.Second)
 		recoveryErr := session.RecoverCore(recoveryCtx, time.Now())
 		recoveryCancel()
-		callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		state := core.Status(callCtx)
+		statusCtx, statusCancel := context.WithTimeout(ctx, 2*time.Second)
+		state := core.Status(statusCtx)
+		statusCancel()
 		if recoveryErr != nil {
 			state.Error = recoveryErr.Error()
 		}
-		if state.Status != previous.Status || state.Mode != previous.Mode || state.Error != previous.Error {
+		if state.Status != previous.Status || state.Mode != previous.Mode || state.Error != previous.Error || state.ServiceMode != previous.ServiceMode {
 			desktop.Event.Emit("core:state", state)
 		}
 		if !isHidden || winCtrl == nil || !winCtrl.IsLightweight() {
-			if traffic, err := core.Snapshot(callCtx); err == nil {
-				desktop.Event.Emit("traffic", traffic)
-			}
-			session.PollTelemetry(callCtx)
+			emitTelemetryStep(ctx, desktop, core, session, state.Status, previous.Status)
 		}
-		cancel()
 		previous = state
 	}
 }
 
-func findDeepLinkArg(args []string) string {
+func emitTelemetryStep(ctx context.Context, desktop *application.App, core *app.Core, session *app.Session, currentStatus, previousStatus string) {
+	pollCtx, pollCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer pollCancel()
+	if currentStatus == "running" {
+		if traffic, err := core.Snapshot(pollCtx); err == nil {
+			desktop.Event.Emit("traffic", traffic)
+		}
+		session.PollTelemetry(pollCtx)
+		return
+	}
+	if previousStatus == "running" {
+		session.ResetTelemetryOnStop(pollCtx)
+	}
+}
+
+func parseLaunchOptions(args []string) launchOptions {
+	var opts launchOptions
 	for _, arg := range args {
-		lower := strings.ToLower(strings.TrimSpace(arg))
-		if strings.HasPrefix(lower, "ferry://") || strings.HasPrefix(lower, "clash://") || strings.HasPrefix(lower, "sing-box://") {
-			return strings.TrimSpace(arg)
+		trimmed := strings.TrimSpace(arg)
+		lower := strings.ToLower(trimmed)
+		switch {
+		case trimmed == "--after-service-install":
+			opts.afterServiceInstall = true
+		case trimmed == "--auto-start-core":
+			opts.autoStartCore = true
+		case trimmed == "--restore-sysproxy":
+			opts.restoreSysProxy = true
+		case opts.deepLink == "" && (strings.HasPrefix(lower, "ferry://") || strings.HasPrefix(lower, "clash://") || strings.HasPrefix(lower, "sing-box://")):
+			opts.deepLink = trimmed
 		}
 	}
-	return ""
+	return opts
 }
 
 func startDeepLinkListener(ctx context.Context, desktop *application.App, winCtrl *windowController, initial string) {
 	deliver := func(raw string) {
+		if raw == instance.ActivateToken {
+			winCtrl.Show()
+			return
+		}
 		preview, err := app.ParseDeepLinkURL(raw)
 		if err != nil {
 			return

@@ -33,6 +33,8 @@ type ServiceMeta struct {
 type ClientAuth struct {
 	CoreExeSHA256 string `json:"coreExeSha256"`
 	Token         string `json:"token"`
+	GUIExePath    string `json:"guiExePath,omitempty"`
+	GUIExeSHA256  string `json:"guiExeSha256,omitempty"`
 }
 
 func GenerateServiceToken() (string, error) {
@@ -95,6 +97,12 @@ func (a ClientAuth) Validate() error {
 	if !hex64Pattern.MatchString(a.CoreExeSHA256) || !hex64Pattern.MatchString(a.Token) {
 		return errors.New("服务客户端认证凭据无效")
 	}
+	if a.GUIExePath != "" && !filepath.IsAbs(a.GUIExePath) {
+		return errors.New("服务客户端认证凭据无效")
+	}
+	if a.GUIExeSHA256 != "" && !hex64Pattern.MatchString(a.GUIExeSHA256) {
+		return errors.New("服务客户端认证凭据无效")
+	}
 	return nil
 }
 
@@ -115,7 +123,7 @@ func WriteServiceAuthFiles(paths InstallPaths, meta ServiceMeta) error {
 	if err := os.WriteFile(paths.ServiceMetaPath, metaBytes, 0o600); err != nil {
 		return errors.New("无法写入服务元数据")
 	}
-	clientBytes, err := json.Marshal(ClientAuth{CoreExeSHA256: meta.CoreExeSHA256, Token: meta.Token})
+	clientBytes, err := json.Marshal(clientAuthForMeta(meta))
 	if err != nil {
 		return errors.New("无法编码服务客户端凭据")
 	}
@@ -123,6 +131,15 @@ func WriteServiceAuthFiles(paths InstallPaths, meta ServiceMeta) error {
 		return errors.New("无法写入服务客户端凭据")
 	}
 	return nil
+}
+
+func clientAuthForMeta(meta ServiceMeta) ClientAuth {
+	return ClientAuth{
+		CoreExeSHA256: meta.CoreExeSHA256,
+		Token:         meta.Token,
+		GUIExePath:    meta.GUIExePath,
+		GUIExeSHA256:  meta.GUIExeSHA256,
+	}
 }
 
 func ReadServiceMeta(path string) (ServiceMeta, error) {

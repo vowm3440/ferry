@@ -1,10 +1,13 @@
 package convert
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 func clashDraft(raw map[string]any) (draft, string) {
 	kind := clashKind(raw["type"])
-	known := strings.Fields("name type server port uuid username password cipher alterId tls skip-cert-verify servername sni client-fingerprint reality-opts network ws-opts grpc-opts udp obfs obfs-password up down congestion-controller udp-relay-mode ip ipv6 private-key public-key pre-shared-key reserved mtu")
+	known := strings.Fields("name type server port uuid username password flow cipher alterId tls skip-cert-verify servername sni client-fingerprint reality-opts network ws-opts grpc-opts udp obfs obfs-password up down congestion-controller udp-relay-mode ip ipv6 private-key public-key pre-shared-key reserved mtu")
 	for key := range raw {
 		if !containsKey(known, key) {
 			return draft{}, "节点含当前不支持的 Clash 字段"
@@ -64,6 +67,7 @@ func clashKind(value any) string {
 
 func clashExtras(o, raw map[string]any, kind string) string {
 	for key, required := range map[string]string{
+		"flow": "vless",
 		"obfs": "hysteria2", "obfs-password": "hysteria2", "up": "hysteria2", "down": "hysteria2",
 		"congestion-controller": "tuic", "udp-relay-mode": "tuic",
 		"ip": "wireguard", "ipv6": "wireguard", "private-key": "wireguard", "public-key": "wireguard",
@@ -71,6 +75,11 @@ func clashExtras(o, raw map[string]any, kind string) string {
 	} {
 		if _, exists := raw[key]; exists && kind != required {
 			return "节点含不适用于此协议的参数"
+		}
+	}
+	if kind == "vless" {
+		if flow, ok := raw["flow"]; ok {
+			o["flow"] = flow
 		}
 	}
 	if kind == "wireguard" {
@@ -113,26 +122,49 @@ func clashTLS(o, raw map[string]any, kind string) string {
 		tls["utls"] = map[string]any{"enabled": true, "fingerprint": value}
 	}
 	if value, exists := raw["reality-opts"]; exists {
-		reality, ok := value.(map[string]any)
-		if !ok {
-			return "Clash Reality 参数无效"
+		if reason := clashReality(tls, value); reason != "" {
+			return reason
 		}
-		for key := range reality {
-			if key != "public-key" && key != "short-id" {
-				return "Clash Reality 含不支持的字段"
-			}
-		}
-		mapped := map[string]any{"enabled": true, "public_key": reality["public-key"]}
-		if id, ok := reality["short-id"]; ok {
-			mapped["short_id"] = id
-		}
-		tls["reality"] = mapped
 	}
 	if !enabled && len(tls) > 1 {
 		return "TLS 未启用但提供了 TLS 参数"
 	}
 	if enabled {
 		o["tls"] = tls
+	}
+	return ""
+}
+
+func clashReality(tls map[string]any, raw any) string {
+	reality, ok := raw.(map[string]any)
+	if !ok {
+		return "Clash Reality 参数无效"
+	}
+	for key, val := range reality {
+		switch key {
+		case "public-key", "short-id":
+		case "spider-x":
+			spx, ok := val.(string)
+			if !ok || len(spx) > 2048 || strings.ContainsFunc(spx, unicode.IsControl) {
+				return "Clash Reality spider-x 参数无效"
+			}
+		default:
+			return "Clash Reality 含不支持的字段"
+		}
+	}
+	mapped := map[string]any{"enabled": true, "public_key": reality["public-key"]}
+	if pk, ok := reality["public-key"].(string); ok {
+		mapped["public_key"] = normalizeRealityKey(pk)
+	}
+	if id, ok := reality["short-id"]; ok {
+		if text, isStr := id.(string); isStr {
+			id = normalizeRealityShortID(text)
+		}
+		mapped["short_id"] = id
+	}
+	tls["reality"] = mapped
+	if tls["utls"] == nil {
+		tls["utls"] = map[string]any{"enabled": true, "fingerprint": "chrome"}
 	}
 	return ""
 }

@@ -15,7 +15,6 @@
   <div class="card-head">
     <span id="usage-title">{tr('订阅用量', 'Subscription Usage')}</span>
     {#if subs.loaded && subs.list.length > 0}
-      <span class="muted">{tr('来自订阅服务器上次更新时给出的数据', 'Reported by subscription servers on last update')}</span>
       <button type="button" class="btn sm right" onclick={() => nav.go('subs')}>{tr('管理订阅', 'Manage')}</button>
     {/if}
   </div>

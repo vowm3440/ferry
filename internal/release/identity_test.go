@@ -3,9 +3,16 @@ package release
 import (
 	"crypto/ed25519"
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 )
+
+func TestReleaseVersionIsValidSemVer(t *testing.T) {
+	if !regexp.MustCompile(`^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$`).MatchString(Version) {
+		t.Fatalf("invalid release.Version: %q", Version)
+	}
+}
 
 func TestReleaseUpdateFeedAndDefaults(t *testing.T) {
 	if len(SignerPins()) != 0 {

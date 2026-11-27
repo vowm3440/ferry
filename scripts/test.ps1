@@ -1,9 +1,25 @@
-param([switch]$SkipFrontend)
+param([string]$Version = '0.2.0', [switch]$SkipFrontend, [switch]$SkipSmoke)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectRoot
 try {
-    & (Join-Path $PSScriptRoot 'build.ps1') -SkipFrontend:$SkipFrontend
+    & (Join-Path $PSScriptRoot 'build.ps1') -Version $Version -SkipFrontend:$SkipFrontend
+    if (-not $SkipFrontend) {
+        Push-Location -LiteralPath (Join-Path $projectRoot 'frontend')
+        try {
+            & pnpm test
+            if ($LASTEXITCODE -ne 0) { throw 'Frontend unit tests failed.' }
+            if (-not $SkipSmoke) {
+                $env:FERRY_SMOKE_DIST = Join-Path $projectRoot 'frontend\dist'
+                try {
+                    & pnpm test:smoke
+                    if ($LASTEXITCODE -ne 0) { throw 'Frontend smoke tests failed.' }
+                } finally {
+                    Remove-Item Env:\FERRY_SMOKE_DIST -ErrorAction SilentlyContinue
+                }
+            }
+        } finally { Pop-Location }
+    }
     $env:CGO_ENABLED = '0'
     $env:FERRY_TEST_CORE = Join-Path $projectRoot 'bin\ferry-core.exe'
     & go run ./scripts/check-source.go
@@ -15,10 +31,11 @@ try {
         # Quoted: Windows PowerShell 5.1 splits an unquoted -name=a.b argument at the dot.
         & go test -tags 'with_gvisor,with_quic,with_utls,with_clash_api,with_wireguard' -count=1 "-coverprofile=$coverFile" ./...
         if ($LASTEXITCODE -ne 0) { throw 'Go tests failed.' }
+        & go tool cover "-func=$coverFile" | Select-Object -Last 1
     } finally {
         Remove-Item -LiteralPath $coverFile -Force -ErrorAction SilentlyContinue
     }
-    & go test ./...
+    & go test -count=1 ./...
     if ($LASTEXITCODE -ne 0) { throw 'Default-tag tests failed.' }
     $guiDependencies = & go list -deps ./cmd/ferry
     if ($LASTEXITCODE -ne 0) { throw 'GUI dependency inspection failed.' }

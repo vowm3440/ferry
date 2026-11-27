@@ -8,7 +8,6 @@
   import { i18n, tr } from '../lib/i18n/index.svelte';
   import { caps } from '../lib/stores/caps.svelte';
   import { core } from '../lib/stores/core.svelte';
-  import { nav } from '../lib/stores/nav.svelte';
   import { subs, type ImportOutcome } from '../lib/stores/subs.svelte';
   import { toasts } from '../lib/stores/toasts.svelte';
   import { QR_IMAGE_MAX_BYTES, canUpdate, describeSkipped, type ImportKind } from '../lib/subs-view';
@@ -148,7 +147,6 @@
 <section class="page" aria-labelledby="subs-title">
   <div class="page-head">
     <h1 id="subs-title">{tr('订阅', 'Subscriptions')}</h1>
-    <span class="sub">{tr('支持 Clash / sing-box / Base64 / 分享链接 / SIP008', 'Supports Clash / sing-box / Base64 / Share URIs / SIP008')}</span>
     <div class="actions">
       {#if anyUpdatable}
         <button type="button" class="btn" aria-disabled={subs.updatingAll} onclick={() => void updateAll()}>
@@ -225,11 +223,6 @@
         <SubCard sub={item} {now} onedit={(sub) => (editId = sub.id)} onremove={(sub) => (pending = sub)} />
       {/each}
     </ul>
-    <div class="inline-note">
-      <Icon name="info" />
-      <span class="grow">{tr('删除订阅会同时移除它导入的节点；节点列表在「节点」页查看。', 'Removing a subscription also deletes its imported nodes; view all nodes in Proxies.')}</span>
-      <button type="button" class="btn sm" onclick={() => nav.go('nodes')}>{tr('前往节点', 'Proxies')}</button>
-    </div>
   {/if}
 </section>
 

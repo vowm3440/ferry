@@ -4,21 +4,67 @@ package ipc
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/subtle"
 	"errors"
 	"ferry/internal/telemetry"
 	"net"
+	"os"
 	"sync"
+	"time"
 )
+
+var (
+	selfPrintOnce   sync.Once
+	selfGUIPath     string
+	selfGUISHA256   string
+	selfPrintLoaded bool
+)
+
+func currentGUIFingerprint() (string, string, bool) {
+	selfPrintOnce.Do(func() {
+		exe, err := os.Executable()
+		if err != nil {
+			return
+		}
+		digest, finalPath, release, err := HashFileLocked(exe)
+		if err != nil {
+			return
+		}
+		_ = release()
+		selfGUIPath, selfGUISHA256, selfPrintLoaded = finalPath, digest, true
+	})
+	return selfGUIPath, selfGUISHA256, selfPrintLoaded
+}
+
+func authMatchesGUI(auth ClientAuth, guiPath, guiSHA256 string) bool {
+	if auth.GUIExePath != "" && !equalCanonicalPath(auth.GUIExePath, guiPath) {
+		return false
+	}
+	if auth.GUIExeSHA256 != "" && subtle.ConstantTimeCompare([]byte(auth.GUIExeSHA256), []byte(guiSHA256)) != 1 {
+		return false
+	}
+	return true
+}
 
 // Router directs GUI IPC calls to the running FerryCore Windows service when
 // available, and transparently falls back to the unprivileged child process.
 type Router struct {
-	mu      sync.Mutex
-	process *Process
-	service *Client
-	svcPID  uint32
-	svcTok  string
+	mu          sync.Mutex
+	process     *Process
+	service     *Client
+	svcPID      uint32
+	svcTok      string
+	svcActive   bool
+	svcReplaced bool
+	usingSvc    bool
+	svcLogBase  int64
+	procLogBase int64
+	logHigh     int64
+	badPID      uint32
+	badUntil    time.Time
+	wakeUntil   time.Time
+	findService func() (ServiceInfo, InstallPaths, ClientAuth, bool)
+	dialService func(pid uint32, paths InstallPaths, auth ClientAuth) (*Client, error)
 }
 
 func NewRouter(coreExecutable string) *Router {
@@ -26,43 +72,185 @@ func NewRouter(coreExecutable string) *Router {
 }
 
 func (r *Router) serviceClient() *Client {
-	info, err := QueryServiceStatus(ServiceName)
-	if err != nil || !info.Installed || !info.Running || info.PID == 0 {
+	find := r.findService
+	if find == nil {
+		find = r.loadMatchedService
+	}
+	info, paths, auth, ok := find()
+	if !ok {
 		r.dropServiceClient()
 		return nil
 	}
+	if !info.Running && r.findService == nil {
+		info, ok = r.tryWakeService(info)
+		if !ok {
+			r.dropServiceClient()
+			return nil
+		}
+	}
+	if cached, skip := r.cachedOrSkipped(info.PID, auth.Token); cached != nil || skip {
+		return cached
+	}
+	return r.connectAndProbeService(info.PID, paths, auth)
+}
+
+func (r *Router) loadMatchedService() (ServiceInfo, InstallPaths, ClientAuth, bool) {
+	info, err := QueryServiceStatus(ServiceName)
+	if err != nil || !info.Installed {
+		return ServiceInfo{}, InstallPaths{}, ClientAuth{}, false
+	}
 	paths, err := ServicePaths()
 	if err != nil {
-		return nil
+		return ServiceInfo{}, InstallPaths{}, ClientAuth{}, false
 	}
 	auth, err := ReadClientAuth(paths.ClientAuthPath)
+	if err != nil || !ServiceBinaryMatches(info.BinaryPath, paths.ServiceCorePath) {
+		return ServiceInfo{}, InstallPaths{}, ClientAuth{}, false
+	}
+	if guiPath, guiHash, loaded := currentGUIFingerprint(); loaded && !authMatchesGUI(auth, guiPath, guiHash) {
+		return ServiceInfo{}, InstallPaths{}, ClientAuth{}, false
+	}
+	return info, paths, auth, true
+}
+
+func (r *Router) tryWakeService(info ServiceInfo) (ServiceInfo, bool) {
+	if info.StartType == "disabled" {
+		return info, false
+	}
+	r.mu.Lock()
+	now := time.Now()
+	allowWake := now.After(r.wakeUntil)
+	if allowWake {
+		r.wakeUntil = now.Add(5 * time.Second)
+	}
+	r.mu.Unlock()
+	if !allowWake || StartWindowsService(ServiceName) != nil {
+		return info, false
+	}
+	refreshed, err := QueryServiceStatus(ServiceName)
+	if err != nil || !refreshed.Running || refreshed.PID == 0 {
+		return refreshed, false
+	}
+	return refreshed, true
+}
+
+func (r *Router) cachedOrSkipped(pid uint32, token string) (*Client, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.service != nil && r.svcPID == pid && r.svcTok == token {
+		return r.service, false
+	}
+	if pid == 0 || (pid == r.badPID && time.Now().Before(r.badUntil)) {
+		return nil, true
+	}
+	return nil, false
+}
+
+func (r *Router) connectAndProbeService(pid uint32, paths InstallPaths, auth ClientAuth) *Client {
+	dial := r.dialService
+	if dial == nil {
+		dial = dialAndVerifyService
+	}
+	client, err := dial(pid, paths, auth)
 	if err != nil {
+		r.markBadPID(pid)
 		return nil
 	}
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.service != nil && r.svcPID == info.PID && r.svcTok == auth.Token {
-		return r.service
-	}
 	if r.service != nil {
 		r.service.Close()
 	}
+	if r.svcPID != 0 && r.svcPID != pid && r.svcActive {
+		r.svcReplaced = true
+	}
+	if !r.usingSvc || r.svcPID != pid {
+		r.svcLogBase = max(r.logHigh, r.process.HighSeq())
+		r.usingSvc = true
+	}
+	r.service, r.svcPID, r.svcTok = client, pid, auth.Token
+	r.badPID = 0
+	r.mu.Unlock()
+	_ = r.process.Close()
+	return client
+}
+
+func (r *Router) markBadPID(pid uint32) {
+	r.mu.Lock()
+	r.badPID = pid
+	r.badUntil = time.Now().Add(3 * time.Second)
+	r.mu.Unlock()
+}
+
+func dialAndVerifyService(pid uint32, paths InstallPaths, auth ClientAuth) (*Client, error) {
 	verifier, err := NewClientHashPeerVerifier(paths.ServiceCorePath, auth.CoreExeSHA256)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	pid := info.PID
-	r.service = NewClientWithDialer(auth.Token, func(ctx context.Context) (net.Conn, error) {
+	client := NewClientWithDialer(auth.Token, func(ctx context.Context) (net.Conn, error) {
 		return DialServicePipe(ctx, ServicePipeName, pid, verifier)
 	})
-	r.svcPID, r.svcTok = pid, auth.Token
-	_ = r.process.Close()
-	return r.service
+	probeCtx, cancel := context.WithTimeout(context.Background(), 800*time.Millisecond)
+	defer cancel()
+	if _, err := client.Status(probeCtx); err != nil {
+		client.Close()
+		return nil, err
+	}
+	return client, nil
+}
+
+// InspectService checks whether FerryCore is installed, running, and healthy for guiExe.
+func InspectService(guiExe string) (installed, running, needsRepair bool, startType string, err error) {
+	info, err := QueryServiceStatus(ServiceName)
+	if err != nil {
+		return false, false, false, "disabled", err
+	}
+	if !info.Installed {
+		return false, false, false, "disabled", nil
+	}
+	paths, pathErr := ServicePaths()
+	auth, authErr := ReadClientAuth(paths.ClientAuthPath)
+	if pathErr != nil || authErr != nil || !ServiceBinaryMatches(info.BinaryPath, paths.ServiceCorePath) {
+		return true, info.Running, true, info.StartType, nil
+	}
+	if !guiMatchesAuth(guiExe, auth) {
+		return true, info.Running, true, info.StartType, nil
+	}
+	if info.Running {
+		client, dialErr := dialAndVerifyService(info.PID, paths, auth)
+		if dialErr != nil {
+			return true, true, true, info.StartType, nil
+		}
+		client.Close()
+	}
+	return true, info.Running, false, info.StartType, nil
+}
+
+func guiMatchesAuth(guiExe string, auth ClientAuth) bool {
+	if auth.GUIExePath == "" && auth.GUIExeSHA256 == "" {
+		return true
+	}
+	if guiPath, guiHash, loaded := currentGUIFingerprint(); loaded && equalCanonicalPath(guiPath, guiExe) {
+		return authMatchesGUI(auth, guiPath, guiHash)
+	}
+	digest, finalPath, release, err := HashFileLocked(guiExe)
+	if err != nil {
+		return false
+	}
+	_ = release()
+	return authMatchesGUI(auth, finalPath, digest)
 }
 
 func (r *Router) dropServiceClient() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.svcActive {
+		r.svcReplaced = true
+		r.svcActive = false
+	}
+	if r.usingSvc {
+		r.procLogBase = r.logHigh
+		r.usingSvc = false
+	}
 	if r.service != nil {
 		r.service.Close()
 		r.service = nil
@@ -72,18 +260,6 @@ func (r *Router) dropServiceClient() {
 }
 
 func (r *Router) StopUserProcess() error { return r.process.Close() }
-
-func (r *Router) Close() error {
-	r.dropServiceClient()
-	return r.process.Close()
-}
-
-func (r *Router) Exited() bool {
-	if r.serviceClient() != nil {
-		return false
-	}
-	return r.process.Exited()
-}
 
 func (r *Router) Status(ctx context.Context) (State, error) {
 	if svc := r.serviceClient(); svc != nil {
@@ -99,41 +275,6 @@ func (r *Router) Snapshot(ctx context.Context) (Traffic, error) {
 	return r.process.Snapshot(ctx)
 }
 
-func (r *Router) Start(ctx context.Context, config json.RawMessage) error {
-	if svc := r.serviceClient(); svc != nil {
-		return svc.Start(ctx, config)
-	}
-	return r.process.Start(ctx, config)
-}
-
-func (r *Router) Stop(ctx context.Context) error {
-	if svc := r.serviceClient(); svc != nil {
-		return svc.Stop(ctx)
-	}
-	return r.process.Stop(ctx)
-}
-
-func (r *Router) SetMode(ctx context.Context, mode string) error {
-	if svc := r.serviceClient(); svc != nil {
-		return svc.SetMode(ctx, mode)
-	}
-	return r.process.SetMode(ctx, mode)
-}
-
-func (r *Router) SelectNode(ctx context.Context, group, node string) error {
-	if svc := r.serviceClient(); svc != nil {
-		return svc.SelectNode(ctx, group, node)
-	}
-	return r.process.SelectNode(ctx, group, node)
-}
-
-func (r *Router) LatencyTest(ctx context.Context, ids []string) (map[string]int, error) {
-	if svc := r.serviceClient(); svc != nil {
-		return svc.LatencyTest(ctx, ids)
-	}
-	return r.process.LatencyTest(ctx, ids)
-}
-
 func (r *Router) Connections(ctx context.Context) ([]telemetry.Connection, error) {
 	if svc := r.serviceClient(); svc != nil {
 		return svc.Connections(ctx)
@@ -146,13 +287,6 @@ func (r *Router) CloseConnection(ctx context.Context, id string) error {
 		return svc.CloseConnection(ctx, id)
 	}
 	return r.process.CloseConnection(ctx, id)
-}
-
-func (r *Router) Logs(ctx context.Context, after int64, limit int) ([]telemetry.LogEntry, error) {
-	if svc := r.serviceClient(); svc != nil {
-		return svc.Logs(ctx, after, limit)
-	}
-	return r.process.Logs(ctx, after, limit)
 }
 
 func (r *Router) SetLogLevel(ctx context.Context, level string) error {

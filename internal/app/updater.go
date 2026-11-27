@@ -20,8 +20,6 @@ import (
 	"time"
 )
 
-const currentAppVersion = "0.1.0"
-
 type UpdateInfo struct {
 	Available  bool   `json:"available"`
 	Version    string `json:"version"`
@@ -120,11 +118,11 @@ func (s *System) CheckUpdate(ctx context.Context, channel string) (UpdateInfo, e
 		s.session.setUpdateState(UpdateState{Phase: "error", Error: err.Error()})
 		return UpdateInfo{Channel: channel, Configured: true}, err
 	}
-	manifest, err := update.VerifyManifest(raw, sig, src.PublicKey, currentAppVersion, channel)
+	manifest, err := update.VerifyManifest(raw, sig, src.PublicKey, release.Version, channel)
 	if err != nil {
 		if strings.Contains(err.Error(), "newer") {
-			s.session.setUpdateState(UpdateState{Phase: "idle", Version: currentAppVersion})
-			return UpdateInfo{Available: false, Version: currentAppVersion, Channel: channel, Configured: true}, nil
+			s.session.setUpdateState(UpdateState{Phase: "idle", Version: release.Version})
+			return UpdateInfo{Available: false, Version: release.Version, Channel: channel, Configured: true}, nil
 		}
 		s.session.setUpdateState(UpdateState{Phase: "error", Error: "更新清单签名或内容验证失败"})
 		return UpdateInfo{Channel: channel, Configured: true}, errors.New("更新清单签名或内容验证失败")
@@ -238,7 +236,7 @@ func defaultLaunchUpdate(path string) (bool, error) {
 		return false, errors.New("invalid path")
 	}
 	if strings.HasSuffix(strings.ToLower(clean), ".exe") {
-		return true, exec.Command(clean).Start()
+		return true, launchInstallerExecutable(clean)
 	}
 	return false, exec.Command("explorer.exe", "/select,"+clean).Start()
 }

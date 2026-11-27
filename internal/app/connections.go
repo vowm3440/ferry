@@ -88,3 +88,12 @@ func (s *Session) PollTelemetry(ctx context.Context) {
 	s.pollConnections(ctx)
 	_ = s.pollLogs(ctx, true) // Remote errors are reflected by core:state; never invent log entries.
 }
+
+// ResetTelemetryOnStop flushes remaining logs once after the core leaves
+// running state and clears the previous connection snapshot cache.
+func (s *Session) ResetTelemetryOnStop(ctx context.Context) {
+	_ = s.pollLogs(ctx, true)
+	s.inspection.mu.Lock()
+	s.inspection.previous = nil
+	s.inspection.mu.Unlock()
+}

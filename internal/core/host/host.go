@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"ferry/internal/core/rulesets"
+	"ferry/internal/release"
 	"ferry/internal/spec"
 	"sync"
 	"time"
@@ -29,7 +30,7 @@ var errStopped = errors.New("内核尚未运行")
 func New() *Host {
 	return &Host{
 		operation: make(chan struct{}, 1),
-		state:     State{Status: "stopped", Mode: "rule", Version: "0.1.0-dev", CoreVersion: "1.14.4"},
+		state:     State{Status: "stopped", Mode: "rule", Version: release.Version, CoreVersion: "1.14.4"},
 		traffic:   zeroTraffic(),
 		logs:      newLogBuffer(),
 	}

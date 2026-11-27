@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"ferry/internal/release"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -99,8 +100,16 @@ func TestAutomationSettingsAndSystemTools(t *testing.T) {
 	var lw bool
 	s.SetLightweightHook(func(on bool) error { lw = on; return nil })
 
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	freePort := ln.Addr().(*net.TCPAddr).Port
+	_ = ln.Close()
+
 	settings := &Settings{s}
 	v, _ := settings.Get(ctx)
+	v.MixedPort = freePort
 	v.AutoStart, v.StartMinimized, v.Lightweight, v.SysProxyOnStart, v.RuleSetAutoUpdate = true, true, true, true, true
 	v.Language = "en-US"
 	if err := settings.Set(ctx, v); err != nil {
@@ -162,7 +171,7 @@ func TestUpdaterUnconfiguredAndSignedDownloadFlow(t *testing.T) {
 			return
 		}
 		manifest, _ := json.Marshal(map[string]any{
-			"version": "0.2.0",
+			"version": "99.0.0",
 			"channel": "stable",
 			"url":     srv.URL + "/artifact.bin",
 			"sha256":  hex.EncodeToString(sum[:]),
@@ -182,7 +191,7 @@ func TestUpdaterUnconfiguredAndSignedDownloadFlow(t *testing.T) {
 		StageDir:    stageDir,
 	})
 	info, err := s.System().CheckUpdate(ctx, "stable")
-	if err != nil || !info.Available || info.Version != "0.2.0" {
+	if err != nil || !info.Available || info.Version != "99.0.0" {
 		t.Fatalf("signed CheckUpdate failed: %v %+v", err, info)
 	}
 	if err := s.System().ApplyUpdate(ctx); err != nil {
@@ -192,7 +201,7 @@ func TestUpdaterUnconfiguredAndSignedDownloadFlow(t *testing.T) {
 	if st.Phase != "staged" || st.Progress != 100 {
 		t.Fatalf("expected staged state, got %+v", st)
 	}
-	stagedBytes, err := os.ReadFile(filepath.Join(stageDir, "Ferry-0.2.0.bin"))
+	stagedBytes, err := os.ReadFile(filepath.Join(stageDir, "Ferry-99.0.0.bin"))
 	if err != nil || string(stagedBytes) != string(payload) {
 		t.Fatalf("staged artifact mismatch: %v", err)
 	}

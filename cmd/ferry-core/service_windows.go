@@ -19,6 +19,12 @@ func runServiceCommand(command string, args []string) error {
 		})
 	case "uninstall-service":
 		return winsvc.Uninstall()
+	case "refresh-installed-service":
+		coreExe, err := os.Executable()
+		if err != nil {
+			return errors.New("无法确定内核程序路径")
+		}
+		return winsvc.RefreshIfInstalled(coreExe)
 	case "install-service", "repair-service":
 		sid, guiExe, err := parseInstallFlags(args)
 		if err != nil {

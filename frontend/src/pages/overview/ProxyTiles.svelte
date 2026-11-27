@@ -5,7 +5,6 @@
   import { i18n, tr } from '../../lib/i18n/index.svelte';
   import { caps } from '../../lib/stores/caps.svelte';
   import { core } from '../../lib/stores/core.svelte';
-  import { nav } from '../../lib/stores/nav.svelte';
   import { settings } from '../../lib/stores/settings.svelte';
   import { system } from '../../lib/stores/system.svelte';
   import { toasts } from '../../lib/stores/toasts.svelte';
@@ -26,7 +25,10 @@
 
   const failed = $derived(caps.has(CAP_SYS_PROXY) && system.proxyError !== '');
   const canTun = $derived(caps.has(CAP_TUN));
-  const svcRunning = $derived(system.service?.installed === true && system.service?.running === true);
+  const svcInstalled = $derived(system.service?.installed === true);
+  const svcNeedsRepair = $derived(system.service?.needsRepair === true);
+  const svcReady = $derived(svcInstalled && system.service?.running === true && !svcNeedsRepair);
+  const svcBusy = $derived(system.serviceAction !== '');
   const tunOn = $derived(system.tun?.enabled === true);
 
   async function toggle(next: boolean): Promise<void> {
@@ -41,6 +43,16 @@
     const result = await system.setTun(next);
     if (result.ok) toasts.ok(next ? tr('TUN 模式已开启', 'TUN mode enabled') : tr('TUN 模式已关闭', 'TUN mode disabled'));
     else toasts.error(result.message);
+  }
+
+  async function handleServiceAction(action: 'install' | 'repair'): Promise<void> {
+    if (svcBusy) return;
+    const result = await system.runServiceAction(action);
+    if (!result.ok) {
+      toasts.error(result.message);
+      return;
+    }
+    toasts.ok(tr('系统服务已就绪，正在重启软件与内核…', 'Service ready; restarting Ferry and core…'));
   }
 </script>
 
@@ -70,28 +82,34 @@
   </div>
 
   {#if canTun}
-    <div class="tile" class:on={tunOn} class:off={!svcRunning && !tunOn} data-tile="tun">
+    <div class="tile" class:on={tunOn} class:off={!svcReady && !tunOn} data-tile="tun">
       <div class="ic"><Icon name="shield" /></div>
       <div class="grow">
         <div class="t">{tr('TUN 模式', 'TUN Mode')}</div>
         <div class="d">
-          {#if svcRunning}
-            {tunOn ? tr('虚拟网卡已启用（服务模式免 UAC）', 'Virtual NIC enabled (Service Mode, no UAC)') : tr('系统服务运行中，可直接开关 TUN', 'Service running; toggle TUN without UAC')}
+          {#if svcReady || tunOn}
+            {tunOn ? tr('已开启', 'On') : tr('未开启', 'Off')}
+          {:else if svcInstalled}
+            {svcNeedsRepair ? tr('服务需更新', 'Update required') : tr('服务未运行', 'Service stopped')}
           {:else}
-            {tr('需先安装系统服务（仅一次 UAC 授权）', 'Install Windows Service first (one-time UAC)')}
+            {tr('未安装服务', 'Not installed')}
           {/if}
         </div>
       </div>
-      {#if svcRunning || tunOn}
+      {#if svcReady || tunOn}
         <Switch
           checked={tunOn}
           disabled={system.tunBusy}
           label={tr('TUN 模式', 'TUN Mode')}
           onchange={(next) => void toggleTun(next)}
         />
+      {:else if svcInstalled}
+        <button type="button" class="btn sm" aria-disabled={svcBusy} onclick={() => void handleServiceAction('repair')}>
+          {svcBusy ? tr('处理中…', 'Working…') : svcNeedsRepair ? tr('修复服务', 'Repair') : tr('启动服务', 'Start')}
+        </button>
       {:else}
-        <button type="button" class="btn sm" onclick={() => nav.go('settings')}>
-          {tr('安装服务', 'Install Service')}
+        <button type="button" class="btn sm" aria-disabled={svcBusy} onclick={() => void handleServiceAction('install')}>
+          {svcBusy ? tr('安装中…', 'Installing…') : tr('安装服务', 'Install')}
         </button>
       {/if}
     </div>

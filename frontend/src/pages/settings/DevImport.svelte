@@ -113,20 +113,11 @@
   <summary>
     <span class="chev"><Icon name="chev" size={14} /></span>
     <span class="grow">
-      <span class="t">{tr('开发配置导入', 'Developer RunSpec Import')} <span class="pill">{tr('开发用途', 'Dev Only')}</span></span>
-      <span class="d">{tr('导入受限的 RunSpec（JSON）用于联调内核；会替换「订阅」页已导入的节点', 'Import restricted RunSpec JSON for debugging; replaces nodes imported via Subscriptions')}</span>
+      <span class="t">{tr('开发配置导入', 'Developer RunSpec Import')}</span>
     </span>
   </summary>
 
   <div class="body">
-    <ul class="rules">
-      <li>{tr('节点的 ', 'Node ')}<code>outbound</code>{tr(' 使用 sing-box 出站格式，只接受后端允许的协议与字段。', ' follows sing-box outbound format with allowlisted protocols and fields only.')}</li>
-      <li><code>rules</code>{tr(' 必须为空数组，', ' must be empty and ')}<code>inbound.tun.enabled</code>{tr(' 必须为 ', ' must be ')}<code>false</code>.</li>
-      <li>{tr('分组类型只支持 ', 'Group types allow ')}<code>select</code>{tr(' 与 ', ' and ')}<code>urltest</code>{tr('；DNS 只支持使用 IP 地址的服务器。', '; DNS servers must use IP literals.')}</li>
-      <li>{tr('字段名区分大小写，不能包含未知字段；大小上限 1 MiB。', 'Field names are case-sensitive with no unknown fields; max size 1 MiB.')}</li>
-      <li>{tr('配置可能包含节点凭据：内容只交给本机后端，界面不保存，导入成功后输入框会被清空。', 'May contain credentials: sent only to local backend, not saved in UI, and cleared after import.')}</li>
-    </ul>
-
     <label class="lbl" for="dev-spec">RunSpec (JSON)</label>
     <textarea
       id="dev-spec"
@@ -152,7 +143,7 @@
 
     <div class="actions">
       <button type="button" class="btn sm ghost" onclick={fillExample}>{tr('填入示例', 'Insert Example')}</button>
-      <span class="hint muted">{tr('示例指向本机 127.0.0.1:1080 的 SOCKS 代理，仅用于说明格式', 'Example points to local SOCKS 127.0.0.1:1080 to illustrate schema')}</span>
+      <span class="spacer"></span>
       <button type="button" class="btn sm ghost" disabled={text === ''} onclick={clear}>{tr('清空', 'Clear')}</button>
       <button
         type="button"
@@ -208,33 +199,11 @@
     font-weight: 500;
   }
 
-  .d {
-    font-size: 12px;
-    color: var(--text-3);
-  }
-
   .body {
     display: grid;
     gap: 10px;
-    padding: 4px 16px 16px;
+    padding: 8px 16px 16px;
     border-top: 1px solid var(--border);
-  }
-
-  .rules {
-    margin: 10px 0 0;
-    padding-left: 18px;
-    display: grid;
-    gap: 3px;
-    font-size: 12px;
-    color: var(--text-2);
-  }
-
-  code {
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    padding: 0 4px;
-    border-radius: 4px;
-    background: var(--surface-3);
   }
 
   .lbl {
@@ -268,9 +237,7 @@
     gap: 8px;
   }
 
-  .hint {
+  .spacer {
     flex: 1;
-    min-width: 0;
-    font-size: 12px;
   }
 </style>

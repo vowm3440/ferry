@@ -18,14 +18,15 @@ import (
 
 	"ferry/internal/core/host"
 	"ferry/internal/ipc"
+	"ferry/internal/release"
 )
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
-		fmt.Println("Ferry core 0.1.0 / sing-box 1.14.4")
+		fmt.Println("Ferry core " + release.Version + " / sing-box 1.14.4")
 		return
 	}
-	if len(os.Args) >= 2 && (os.Args[1] == "service" || os.Args[1] == "install-service" || os.Args[1] == "uninstall-service" || os.Args[1] == "repair-service") {
+	if len(os.Args) >= 2 && (os.Args[1] == "service" || os.Args[1] == "install-service" || os.Args[1] == "uninstall-service" || os.Args[1] == "repair-service" || os.Args[1] == "refresh-installed-service") {
 		if err := runServiceCommand(os.Args[1], os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)

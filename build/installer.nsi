@@ -1,11 +1,11 @@
 ; Ferry NSIS Installer Script (LZMA Solid)
-; Build with: makensis /DVERSION=0.1.0 /DOUTFILE=..\dist\Ferry-0.1.0-windows-amd64-setup.exe installer.nsi
+; Build with: makensis /DVERSION=0.2.0 /DOUTFILE=..\dist\Ferry-0.2.0-windows-amd64-setup.exe installer.nsi
 
 !include "MUI2.nsh"
 !include "x64.nsh"
 
 !ifndef VERSION
-  !define VERSION "0.1.0-dev"
+  !define VERSION "0.2.0-dev"
 !endif
 !ifndef OUTFILE
   !define OUTFILE "..\dist\Ferry-${VERSION}-windows-amd64-setup.exe"
@@ -40,11 +40,20 @@ Section "Ferry Core & GUI" SecMain
   SectionIn RO
   SetOutPath "$INSTDIR"
 
+  ; Stop running service and user processes before overwriting binaries on upgrade.
+  nsExec::ExecToLog 'sc.exe stop FerryCore'
+  nsExec::ExecToLog 'taskkill.exe /F /IM Ferry.exe'
+  nsExec::ExecToLog 'taskkill.exe /F /IM ferry-core.exe'
+  Sleep 400
+
   File "..\bin\Ferry.exe"
   File "..\bin\ferry-core.exe"
   File "..\LICENSE"
   File "..\NOTICE"
   File "..\README.md"
+
+  ; Keep existing FerryCore service synced with upgraded binaries and GUI SHA-256.
+  nsExec::ExecToLog '"$INSTDIR\ferry-core.exe" refresh-installed-service'
 
   WriteRegStr HKLM "Software\Ferry" "InstallDir" "$INSTDIR"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Ferry" "DisplayName" "Ferry"
@@ -77,6 +86,8 @@ Section "Uninstall"
   SetShellVarContext all
   RMDir /r "$APPDATA\Ferry\service"
   RMDir /r "$APPDATA\Ferry\service-client"
+  RMDir /r "$APPDATA\Ferry\rulesets"
+  RMDir "$APPDATA\Ferry"
 
   Delete "$SMPROGRAMS\Ferry\Ferry.lnk"
   Delete "$SMPROGRAMS\Ferry\Uninstall Ferry.lnk"

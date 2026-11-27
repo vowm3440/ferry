@@ -118,6 +118,7 @@ export interface UpdateState {
 export interface ServiceStatus {
   installed: boolean;
   running: boolean;
+  needsRepair?: boolean;
   startType: string;
   version: string;
 }

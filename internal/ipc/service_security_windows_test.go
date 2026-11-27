@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -252,5 +254,172 @@ func TestQueryServiceStatusReadOnly(t *testing.T) {
 	}
 	if mapStartType(2) != "auto" || mapStartType(3) != "manual" || mapStartType(4) != "disabled" {
 		t.Fatal("unexpected start type mapping")
+	}
+}
+
+func TestWinPeerVerifierMutualPipeAuthWithoutServerProcessOpen(t *testing.T) {
+	dir := t.TempDir()
+	coreFile := filepath.Join(dir, "ferry-core.exe")
+	if err := os.WriteFile(coreFile, []byte("synthetic-service-core"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	coreHash, _, relCore, err := HashFileLocked(coreFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = relCore()
+
+	guiExe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	guiHash, guiFinal, relGUI, err := HashFileLocked(guiExe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = relGUI()
+
+	sid := currentUserSID(t)
+	meta := ServiceMeta{
+		AuthorizedUserSID: sid,
+		GUIExePath:        guiFinal,
+		GUIExeSHA256:      guiHash,
+		CoreExeSHA256:     coreHash,
+		Token:             strings.Repeat("b", 64),
+	}
+	serverVerifier, err := NewHashPeerVerifier(meta, coreFile)
+	if err != nil {
+		t.Fatalf("NewHashPeerVerifier failed: %v", err)
+	}
+	// Clear Pins so tests always exercise locked SHA-256 verification.
+	serverVerifier.Pins = nil
+	clientVerifier, err := NewClientHashPeerVerifier(coreFile, coreHash)
+	if err != nil {
+		t.Fatalf("NewClientHashPeerVerifier failed: %v", err)
+	}
+	clientVerifier.Pins = nil
+
+	pipe := randomTestPipe(t)
+	ln, err := listenServicePipeSDDL(pipe, "D:P(A;;GA;;;"+sid+")", serverVerifier)
+	if err != nil {
+		t.Fatalf("listenServicePipeSDDL failed: %v", err)
+	}
+	srv := &http.Server{
+		Handler: RequireVerifiedPeerWithToken(meta.Token, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, 200, map[string]any{"ok": true})
+		})),
+		ConnContext: ServiceConnContext,
+	}
+	go func() { _ = srv.Serve(ln) }()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Shutdown(ctx)
+	}()
+
+	selfPID := uint32(os.Getpid())
+	client := NewClientWithDialer(meta.Token, func(ctx context.Context) (net.Conn, error) {
+		return DialServicePipe(ctx, pipe, selfPID, clientVerifier)
+	})
+	defer client.Close()
+	if _, err := client.Snapshot(context.Background()); err != nil {
+		t.Fatalf("expected mutual verification to succeed without OpenProcess on server: %v", err)
+	}
+
+	// Wrong expected PID must still fail.
+	if _, err := DialServicePipe(context.Background(), pipe, selfPID+1, clientVerifier); err == nil {
+		t.Fatal("expected mismatched expected server PID to fail")
+	}
+
+	// Tampering the core binary hash expected by client must fail.
+	badClientVerifier, err := NewClientHashPeerVerifier(coreFile, strings.Repeat("c", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	badClientVerifier.Pins = nil
+	if _, err := DialServicePipe(context.Background(), pipe, selfPID, badClientVerifier); err == nil {
+		t.Fatal("expected core binary hash mismatch to fail")
+	}
+}
+
+func TestProtectClientReadFileGrantsReadWithoutUnsafeWrite(t *testing.T) {
+	if err := ProtectClientReadFile("relative.exe", currentUserSID(t)); err == nil {
+		t.Fatal("relative file path must be rejected")
+	}
+	dir := t.TempDir()
+	target := filepath.Join(dir, "ferry-core.exe")
+	if err := os.WriteFile(target, []byte("core-payload"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sid := currentUserSID(t)
+	if err := ProtectClientReadFile(target, sid); err != nil {
+		t.Fatalf("ProtectClientReadFile failed: %v", err)
+	}
+	sd, err := windows.GetNamedSecurityInfo(target, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+	if err != nil || sd == nil {
+		t.Fatalf("GetNamedSecurityInfo failed: %v", err)
+	}
+	dacl, _, err := sd.DACL()
+	if err != nil || dacl == nil {
+		t.Fatalf("DACL missing: %v", err)
+	}
+	foundUserRead := false
+	for i := uint32(0); i < uint32(dacl.AceCount); i++ {
+		var ace *windows.ACCESS_ALLOWED_ACE
+		if err := windows.GetAce(dacl, i, &ace); err != nil || ace == nil {
+			t.Fatal(err)
+		}
+		if ace.Header.AceType != windows.ACCESS_ALLOWED_ACE_TYPE {
+			continue
+		}
+		aceSID := (*windows.SID)(unsafe.Pointer(&ace.SidStart)).String()
+		if aceSID == sid {
+			if (uint32(ace.Mask) & unsafeWriteMask) != 0 {
+				t.Fatalf("authorized user must not receive write/delete rights: mask=%#x", ace.Mask)
+			}
+			if (uint32(ace.Mask) & windows.FILE_GENERIC_READ) == windows.FILE_GENERIC_READ {
+				foundUserRead = true
+			}
+		} else if !isPrivilegedSID(aceSID) {
+			t.Fatalf("unexpected non-privileged ACE for %s", aceSID)
+		}
+	}
+	if !foundUserRead {
+		t.Fatal("expected authorized user SID to receive read access")
+	}
+}
+
+func TestClientAuthRoundTripWithGUIHash(t *testing.T) {
+	dir := t.TempDir()
+	sid := currentUserSID(t)
+	meta := ServiceMeta{
+		AuthorizedUserSID: sid,
+		GUIExePath:        `C:\Apps\Ferry\Ferry.exe`,
+		GUIExeSHA256:      strings.Repeat("1", 64),
+		CoreExeSHA256:     strings.Repeat("2", 64),
+		Token:             strings.Repeat("3", 64),
+	}
+	authPath := filepath.Join(dir, "auth.json")
+	data, err := json.Marshal(clientAuthForMeta(meta))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(authPath, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	auth, err := ReadClientAuth(authPath)
+	if err != nil {
+		t.Fatalf("ReadClientAuth failed: %v", err)
+	}
+	if auth.GUIExePath != meta.GUIExePath || auth.GUIExeSHA256 != meta.GUIExeSHA256 {
+		t.Fatalf("expected GUI hash metadata in ClientAuth, got %+v", auth)
+	}
+	// Legacy auth.json without GUIExePath / GUIExeSHA256 must still validate.
+	legacy := filepath.Join(dir, "legacy-auth.json")
+	if err := os.WriteFile(legacy, []byte(`{"coreExeSha256":"`+strings.Repeat("a", 64)+`","token":"`+strings.Repeat("b", 64)+`"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadClientAuth(legacy); err != nil {
+		t.Fatalf("legacy ClientAuth must remain valid: %v", err)
 	}
 }

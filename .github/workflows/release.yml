@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version without v prefix (e.g. 0.2.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Resolve version and update channel
+        id: meta
+        shell: pwsh
+        run: |
+          $raw = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.version }}' } else { '${{ github.ref_name }}' }
+          $ver = $raw.TrimStart('v')
+          if ($ver -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw "Invalid version: $ver" }
+          $channel = if ($ver -match '-') { 'beta' } else { 'stable' }
+          "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=v$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Build, verify, and package release artifacts
+        shell: pwsh
+        run: .\scripts\package.ps1 -Version '${{ steps.meta.outputs.version }}' -Force
+
+      - name: Generate signed update manifest when release key secret is set
+        id: sign
+        shell: pwsh
+        env:
+          FERRY_RELEASE_ED25519_KEY: ${{ secrets.FERRY_RELEASE_ED25519_KEY }}
+        run: |
+          $ver = '${{ steps.meta.outputs.version }}'
+          $tag = '${{ steps.meta.outputs.tag }}'
+          $channel = '${{ steps.meta.outputs.channel }}'
+          $installer = "dist/Ferry-$ver-windows-amd64-setup.exe"
+          if (-not (Test-Path -LiteralPath $installer)) { throw "Missing installer: $installer" }
+          if (-not $env:FERRY_RELEASE_ED25519_KEY) {
+            Write-Host 'FERRY_RELEASE_ED25519_KEY secret not set; skipping manifest signing.'
+            "signed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            exit 0
+          }
+          $keyFile = Join-Path $env:RUNNER_TEMP 'release-ed25519.key'
+          try {
+            [System.IO.File]::WriteAllText($keyFile, $env:FERRY_RELEASE_ED25519_KEY.Trim())
+            $url = "https://github.com/${{ github.repository }}/releases/download/$tag/Ferry-$ver-windows-amd64-setup.exe"
+            & go run ./scripts/sign-release.go -key $keyFile -version $ver -channel $channel -file $installer -url $url -out dist
+            if ($LASTEXITCODE -ne 0) { throw 'Release signing failed.' }
+            "signed=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } finally {
+            Remove-Item -LiteralPath $keyFile -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload packaged release workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ferry-release-${{ steps.meta.outputs.version }}
+          path: dist/Ferry-${{ steps.meta.outputs.version }}-*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: steps.sign.outputs.signed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          prerelease: ${{ steps.meta.outputs.channel == 'beta' }}
+          generate_release_notes: true
+          files: |
+            dist/Ferry-${{ steps.meta.outputs.version }}-windows-amd64-setup.exe
+            dist/Ferry-${{ steps.meta.outputs.version }}-windows-amd64.zip
+            dist/Ferry-${{ steps.meta.outputs.version }}-source.zip
+            dist/Ferry-${{ steps.meta.outputs.version }}-SHA256SUMS.txt
+            dist/manifest-${{ steps.meta.outputs.channel }}.json
+            dist/manifest-${{ steps.meta.outputs.channel }}.json.sig

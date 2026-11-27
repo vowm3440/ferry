@@ -1,10 +1,12 @@
-param([string]$Version = '0.1.0', [switch]$SkipBuild)
+param([string]$Version = '0.2.0', [switch]$SkipBuild, [switch]$SkipSmoke, [switch]$Force)
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid package version.' }
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectRoot
 try {
-    if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'test.ps1') -SkipFrontend }
+    if (-not $SkipBuild) {
+        & (Join-Path $PSScriptRoot 'test.ps1') -Version $Version -SkipSmoke:$SkipSmoke
+    }
     foreach ($required in @('bin\Ferry.exe','bin\ferry-core.exe','LICENSE','NOTICE','README.md')) {
         if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Missing package input: $required" }
     }
@@ -14,8 +16,13 @@ try {
     New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
     $binaryPath = Join-Path $outputDirectory "Ferry-$Version-windows-amd64.zip"
     $sourcePath = Join-Path $outputDirectory "Ferry-$Version-source.zip"
-    foreach ($target in @($binaryPath,$sourcePath)) {
-        if (Test-Path -LiteralPath $target) { throw "Archive already exists; choose a new version: $target" }
+    $installerPath = Join-Path $outputDirectory "Ferry-$Version-windows-amd64-setup.exe"
+    $sumsPath = Join-Path $outputDirectory "Ferry-$Version-SHA256SUMS.txt"
+    foreach ($target in @($binaryPath,$sourcePath,$installerPath,$sumsPath)) {
+        if (Test-Path -LiteralPath $target) {
+            if ($Force) { Remove-Item -LiteralPath $target -Force }
+            else { throw "Archive already exists; choose a new version or pass -Force: $target" }
+        }
     }
     function Write-Archive([string]$destination, $entries) {
         $stream = [System.IO.File]::Open($destination, [System.IO.FileMode]::CreateNew)
@@ -37,10 +44,11 @@ try {
     $sourceEntries = [System.Collections.Generic.List[object]]::new()
     $sourceFiles = @('go.mod','go.sum','LICENSE','NOTICE','README.md','.gitignore')
     $sourceRoots = @('build','cmd','internal','scripts','testdata','docs\plan','docs\research','frontend\src','frontend\tests','frontend\public')
+    if (Test-Path -LiteralPath '.github') { $sourceRoots += '.github' }
     $sourceFiles += Get-ChildItem -LiteralPath frontend -File -Force | Select-Object -ExpandProperty FullName
     foreach ($sourceRoot in $sourceRoots) {
         $sourceFiles += Get-ChildItem -LiteralPath $sourceRoot -File -Recurse | Where-Object {
-            $_.FullName -notmatch '[\\/](?:dist|\.keys)[\\/]' -and $_.Extension -notin @('.db','.exe','.tmp','.dat','.out','.key','.pem')
+            $_.FullName -notmatch '[\\/](?:dist|\.keys)[\\/]' -and $_.Extension -notin @('.db','.exe','.tmp','.dat','.out','.key','.pem','.old')
         } | Select-Object -ExpandProperty FullName
     }
     foreach ($file in ($sourceFiles | Select-Object -Unique)) {
@@ -63,14 +71,13 @@ try {
             "${env:ProgramFiles(x86)}\NSIS\makensis.exe",
             "D:\Program Files (x86)\NSIS\makensis.exe",
             "D:\Program Files\NSIS\makensis.exe",
-            "$env:LOCALAPPDATA\Programs\NSIS\makensis.exe"
+            "$env:LOCALAPPDATA\Programs\NSIS\makensis.exe",
+            "C:\ProgramData\chocolatey\bin\makensis.exe"
         ) + ($regDirs | ForEach-Object { Join-Path $_ 'makensis.exe' })
         $makensisExe = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
     }
     $installerScript = Join-Path $projectRoot 'build\installer.nsi'
     if ($makensisExe -and (Test-Path -LiteralPath $installerScript -PathType Leaf)) {
-        $installerPath = Join-Path $outputDirectory "Ferry-$Version-windows-amd64-setup.exe"
-        if (Test-Path -LiteralPath $installerPath) { throw "Installer already exists; choose a new version: $installerPath" }
         & $makensisExe "/DVERSION=$Version" "/DOUTFILE=$installerPath" $installerScript
         if ($LASTEXITCODE -ne 0) { throw 'NSIS installer build failed.' }
         $hashTargets.Add($installerPath)
@@ -81,6 +88,6 @@ try {
         $hash = Get-FileHash -LiteralPath $file -Algorithm SHA256
         '{0}  {1}' -f $hash.Hash.ToLowerInvariant(), [System.IO.Path]::GetFileName($file)
     }
-    $hashLines | Set-Content -LiteralPath (Join-Path $outputDirectory "Ferry-$Version-SHA256SUMS.txt") -Encoding ASCII
+    $hashLines | Set-Content -LiteralPath $sumsPath -Encoding ASCII
     Get-Item -LiteralPath $hashTargets | Select-Object Name,Length
 } finally { Pop-Location }

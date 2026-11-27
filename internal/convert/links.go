@@ -70,7 +70,7 @@ func tlsOptions(q url.Values) map[string]any {
 		tls["utls"] = map[string]any{"enabled": true, "fingerprint": fp}
 	}
 	if q.Get("security") == "reality" {
-		tls["reality"] = map[string]any{"enabled": true, "public_key": q.Get("pbk"), "short_id": q.Get("sid")}
+		tls["reality"] = map[string]any{"enabled": true, "public_key": normalizeRealityKey(q.Get("pbk")), "short_id": normalizeRealityShortID(q.Get("sid"))}
 		if q.Get("fp") == "" {
 			tls["utls"] = map[string]any{"enabled": true, "fingerprint": "chrome"}
 		}
@@ -85,13 +85,19 @@ func transportOptions(q url.Values) (map[string]any, string) {
 	if header := q.Get("headerType"); header != "" && header != "none" {
 		return nil, "含暂不支持的参数 headerType"
 	}
+	if mode := q.Get("mode"); mode != "" && q.Get("type") != "grpc" {
+		return nil, "仅 gRPC 传输支持 mode 参数"
+	}
 	switch q.Get("type") {
 	case "grpc":
 		if q.Get("host") != "" || q.Get("path") != "" {
 			return nil, "gRPC 请使用 serviceName 参数"
 		}
+		if mode := q.Get("mode"); mode != "" && mode != "gun" {
+			return nil, "暂不支持该 gRPC 模式"
+		}
 		return map[string]any{"type": "grpc", "service_name": q.Get("serviceName")}, ""
-	case "", "tcp":
+	case "", "tcp", "raw":
 		if q.Get("host") != "" || q.Get("path") != "" || q.Get("serviceName") != "" {
 			return nil, "TCP 传输不支持 host 或 path 参数"
 		}
@@ -114,7 +120,7 @@ func transportOptions(q url.Values) (map[string]any, string) {
 	}
 }
 
-var streamParams = []string{"security", "sni", "peer", "type", "host", "path", "alpn", "allowInsecure", "insecure", "headerType", "fp", "serviceName"}
+var streamParams = []string{"security", "sni", "peer", "type", "host", "path", "alpn", "allowInsecure", "insecure", "headerType", "fp", "serviceName", "mode"}
 
 func parseVLESS(line string) (draft, string) {
 	u, q, reason := parseURL(line)
@@ -145,7 +151,7 @@ func parseVLESS(line string) (draft, string) {
 	if flow := q.Get("flow"); flow != "" {
 		outbound["flow"] = flow
 	}
-	known := append([]string{"encryption", "flow", "pbk", "sid"}, streamParams...)
+	known := append([]string{"encryption", "flow", "pbk", "sid", "spx"}, streamParams...)
 	return draft{name: u.Fragment, outbound: outbound}, unsupportedParam(q, known...)
 }
 

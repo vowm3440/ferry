@@ -25,15 +25,7 @@
   }
 </script>
 
-<SettingRow
-  title={tr('订阅 User-Agent', 'Subscription User-Agent')}
-  desc={tr(
-    '拉取订阅链接时发送的 User-Agent；部分服务商按它决定返回的格式。单个订阅可以在订阅页另行指定',
-    'Default User-Agent sent when fetching subscriptions; individual subscriptions can override it in Subscriptions',
-  )}
-  error={uaError}
-  wide
->
+<SettingRow title={tr('订阅 User-Agent', 'Subscription User-Agent')} error={uaError} wide>
   <label class="input ua" class:invalid={uaError !== ''}>
     <input
       class="mono"
@@ -48,10 +40,7 @@
     />
   </label>
 </SettingRow>
-<SettingRow
-  title={tr('订阅自动更新间隔', 'Subscription Update Interval')}
-  desc={tr('新添加的链接订阅默认使用这个间隔；已有订阅的间隔在订阅页单独调整', 'Default auto-update interval for newly added URL subscriptions')}
->
+<SettingRow title={tr('订阅自动更新间隔', 'Subscription Update Interval')}>
   <select
     class="select"
     aria-label={tr('订阅自动更新间隔', 'Subscription Update Interval')}
@@ -66,9 +55,7 @@
 </SettingRow>
 <SettingRow
   title={tr('规则集自动更新', 'Auto-Update Rule Sets')}
-  desc={canAutomate
-    ? tr('在后台每 24 小时检查并更新离线规则集缓存，不中断运行中的内核', 'Refresh offline rule-set caches every 24 hours in the background')
-    : tr('当前版本不会自动更新规则集，可在规则页手动更新', 'Automatic refresh unavailable in this backend; update manually in Rules')}
+  desc={canAutomate ? '' : tr('当前版本不提供', 'Unavailable in this backend')}
   tag={canAutomate ? '' : tr('未开放', 'Unavailable')}
 >
   <Switch

@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"ferry/internal/app"
+	"ferry/internal/instance"
 	"ferry/internal/store"
 	"ferry/internal/sysproxy"
 
@@ -41,8 +42,14 @@ func loadSession(remote app.Remote) (*app.Session, error) {
 }
 
 func startupError(err error) {
+	titleText := "Ferry — 无法加载配置"
+	flags := uintptr(0x10)
+	if errors.Is(err, instance.ErrRunning) {
+		titleText = "Ferry"
+		flags = 0x40
+	}
 	message, _ := windows.UTF16PtrFromString(err.Error())
-	title, _ := windows.UTF16PtrFromString("Ferry — 无法加载配置")
+	title, _ := windows.UTF16PtrFromString(titleText)
 	messageBox := windows.NewLazySystemDLL("user32.dll").NewProc("MessageBoxW")
-	messageBox.Call(0, uintptr(unsafe.Pointer(message)), uintptr(unsafe.Pointer(title)), 0x10)
+	messageBox.Call(0, uintptr(unsafe.Pointer(message)), uintptr(unsafe.Pointer(title)), flags)
 }

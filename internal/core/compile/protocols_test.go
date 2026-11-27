@@ -18,6 +18,7 @@ func TestImportedProtocolsConstructWithRealCore(t *testing.T) {
 	for _, link := range []string{
 		"vmess://" + base64.StdEncoding.EncodeToString([]byte(vmess)),
 		"vless://" + uuid + "@edge.example.com:443?security=tls&type=grpc&serviceName=test",
+		"vless://" + uuid + "@85.149.216.35:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=nlnet.nl&fp=chrome&pbk=q5lP3LTfQLLv27R5maqTkeXn6tOtk5HCThjSpKmuyEM&sid=d9da6d58ff569e4f&spx=%2F&type=tcp&headerType=none#jp-vless",
 		"hysteria2://synthetic@edge.example.com:443",
 		"tuic://" + uuid + ":synthetic@edge.example.com:443",
 		"anytls://synthetic@edge.example.com:443",

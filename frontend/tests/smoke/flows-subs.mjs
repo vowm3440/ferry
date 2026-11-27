@@ -59,7 +59,6 @@ async function importSection(page, fake, { lastCall, countCalls }) {
   console.log('\n== S1 订阅页与导入方式 ==');
   await goPage(page, 3);
   check('S1 标题是「订阅」', await page.waitFor(`${H1} === '订阅'`));
-  check('S1 副标题列出支持的格式', await has(page, '.page-head', '支持 Clash / sing-box / Base64 / 分享链接 / SIP008'));
   const tiles = await page.eval(`[...document.querySelectorAll('.tiles button.imp b')].map((item) => item.innerText.trim()).join(',')`);
   check('S1 四种导入方式', tiles === '订阅链接,粘贴内容,二维码图片,本地文件', tiles);
   check('S1 没有订阅时显示空状态', await has(page, 'main', '还没有订阅'));

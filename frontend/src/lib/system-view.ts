@@ -148,12 +148,7 @@ export function persistenceNote(input: PersistenceInput): string {
     );
   }
   if (!input.capsLoaded) return '';
-  if (input.persistent) {
-    return t(
-      '设置加密保存在本机，仅当前 Windows 账户可以读取，下次启动 Ferry 时自动恢复。',
-      'Settings are encrypted locally (DPAPI, readable only by your Windows account) and restored on next launch.',
-    );
-  }
+  if (input.persistent) return '';
   return t(
     '当前设置只在本次运行期间有效：退出 Ferry 后恢复默认值。主题除外，主题保存在本机。',
     'Settings apply to this session only and reset after quitting Ferry. Theme is saved locally.',

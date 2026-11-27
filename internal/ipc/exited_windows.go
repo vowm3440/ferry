@@ -2,6 +2,12 @@
 
 package ipc
 
+func (p *Process) HighSeq() int64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.logHigh
+}
+
 func (p *Process) Exited() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()

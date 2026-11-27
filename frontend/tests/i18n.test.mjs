@@ -218,7 +218,8 @@ test('i18n：纯 TS 视图辅助函数支持 en-US 与 zh-CN 双语输出', asyn
       }).detail,
       'Off',
     );
-    assert.match(persistenceNote({ capsLoaded: true, persistent: true, demo: false }), /encrypted locally/i);
+    assert.equal(persistenceNote({ capsLoaded: true, persistent: true, demo: false }), '');
+    assert.match(persistenceNote({ capsLoaded: true, persistent: false, demo: false }), /session only/i);
     assert.match(fileActionBlock({ capsLoaded: true, capable: false, dialogs: true }), /not supported/i);
     assert.equal(restoreReplaces().length, 4);
     assert.equal(diagnosticsContains().length, 4);

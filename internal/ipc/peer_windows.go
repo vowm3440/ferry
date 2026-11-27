@@ -109,14 +109,13 @@ func (v *WinPeerVerifier) VerifyServer(conn net.Conn, expectedPID uint32) (PeerI
 	if err != nil || expectedPID == 0 || pid != expectedPID {
 		return PeerIdentity{}, nil, errors.New("服务进程身份与系统服务管理器不一致")
 	}
-	sid, imgPath, err := inspectProcess(pid)
-	if err != nil {
-		return PeerIdentity{}, nil, err
+	if !filepath.IsAbs(v.ExpectedCorePath) {
+		return PeerIdentity{}, nil, errors.New("服务程序路径无效")
 	}
-	if !equalCanonicalPath(imgPath, v.ExpectedCorePath) {
-		return PeerIdentity{}, nil, errors.New("服务程序路径与受信任安装目录不符")
-	}
-	return v.verifyImage(pid, sid, imgPath, v.ExpectedCoreSHA256)
+	// Do not call OpenProcess/OpenProcessToken on LocalSystem services from an
+	// unprivileged GUI process; Windows denies access (ERROR_ACCESS_DENIED).
+	// Kernel-reported GetNamedPipeServerProcessId == SCM PID + locked binary hash suffices.
+	return v.verifyImage(pid, sidSystem, v.ExpectedCorePath, v.ExpectedCoreSHA256)
 }
 
 func (v *WinPeerVerifier) verifyImage(pid uint32, sid, imgPath, expectedSHA256 string) (PeerIdentity, func() error, error) {

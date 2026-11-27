@@ -112,24 +112,15 @@
 <SettingRow title={tr('Ferry 版本', 'Ferry Version')}>
   <span class="chip mono selectable">{version}</span>
 </SettingRow>
-<SettingRow
-  title={tr('sing-box 内核', 'sing-box Core')}
-  desc={tr('内核以库的形式内嵌；Ferry 与 sing-box 官方无关联', 'Embedded as a library; Ferry is unaffiliated with sing-box')}
->
+<SettingRow title={tr('sing-box 内核', 'sing-box Core')}>
   <span class="chip mono selectable">{coreVersion}</span>
 </SettingRow>
-<SettingRow
-  title={tr('运行方式', 'Runtime Mode')}
-  desc={tr('未安装服务时以当前用户子进程运行；安装 FerryCore 服务后自动切换服务模式', 'Runs as user process by default; switches to service mode once FerryCore is installed')}
->
+<SettingRow title={tr('运行方式', 'Runtime Mode')}>
   <span class="chip">{runMode}</span>
 </SettingRow>
 <SettingRow
   title={tr('应用内更新', 'In-App Updates')}
-  desc={updateNote ||
-    (canOnlineUpdate
-      ? tr('通过 ed25519 签名清单检查、校验 SHA-256 并拉起安装更新', 'Verify signed ed25519 manifests, check SHA-256, and install updates')
-      : tr('当前开发构建未配置生产更新地址与签名公钥，新版本需要手动下载安装', 'Production update endpoint/key not configured in this build; update manually'))}
+  desc={updateNote}
   tag={canOnlineUpdate ? '' : tr('未开放', 'Unconfigured')}
 >
   <div class="upd-row">
@@ -165,10 +156,7 @@
     {/if}
   </div>
 </SettingRow>
-<SettingRow
-  title={tr('许可证', 'License')}
-  desc={tr('Ferry 与内嵌的 sing-box 均以 GPL-3.0-or-later 许可发布，完整声明见下方', 'Both Ferry and embedded sing-box are licensed under GPL-3.0-or-later')}
->
+<SettingRow title={tr('许可证', 'License')}>
   <span class="chip">GPL-3.0-or-later</span>
 </SettingRow>
 <LegalNotice />

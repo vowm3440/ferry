@@ -111,6 +111,24 @@ func ProtectClientAuthDir(dir, authorizedUserSID string) error {
 	return applyProtectedDirSDDL(dir, "D:P(A;OICI;GA;;;SY)(A;OICI;GA;;;BA)(A;OICI;GR;;;"+sid+")")
 }
 
+// ProtectClientReadFile applies a protected DACL granting SYSTEM/Administrators
+// full control and the single authorized GUI user read-only access to the file.
+func ProtectClientReadFile(filePath, authorizedUserSID string) error {
+	clean := filepath.Clean(filePath)
+	if !filepath.IsAbs(clean) {
+		return errors.New("目标文件路径无效")
+	}
+	if err := checkNoReparseChain(clean); err != nil {
+		return err
+	}
+	sid, err := parseUserSID(authorizedUserSID)
+	if err != nil {
+		return err
+	}
+	sddl := "D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GR;;;" + sid + ")"
+	return setProtectedDACL(clean, sddl, "无法应用受保护文件访问控制列表")
+}
+
 func applyProtectedDirSDDL(dir, sddl string) error {
 	clean := filepath.Clean(dir)
 	if !filepath.IsAbs(clean) {
@@ -122,17 +140,27 @@ func applyProtectedDirSDDL(dir, sddl string) error {
 	if err := checkNoReparseChain(clean); err != nil {
 		return err
 	}
+	if err := setProtectedDACL(clean, sddl, "无法应用受保护目录访问控制列表"); err != nil {
+		return err
+	}
+	if adminSID, err := windows.StringToSid(sidAdministrators); err == nil {
+		_ = windows.SetNamedSecurityInfo(clean, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION, adminSID, nil, nil, nil)
+	}
+	return nil
+}
+
+func setProtectedDACL(target, sddl, applyErrMsg string) error {
 	sd, err := windows.SecurityDescriptorFromString(sddl)
 	if err != nil {
-		return errors.New("无法构造受保护目录权限")
+		return errors.New("无法构造受保护路径权限")
 	}
 	dacl, _, err := sd.DACL()
 	if err != nil || dacl == nil {
-		return errors.New("无法提取受保护目录权限")
+		return errors.New("无法提取受保护路径权限")
 	}
 	flags := windows.SECURITY_INFORMATION(windows.DACL_SECURITY_INFORMATION | windows.PROTECTED_DACL_SECURITY_INFORMATION)
-	if err := windows.SetNamedSecurityInfo(clean, windows.SE_FILE_OBJECT, flags, nil, nil, dacl, nil); err != nil {
-		return errors.New("无法应用受保护目录访问控制列表")
+	if err := windows.SetNamedSecurityInfo(target, windows.SE_FILE_OBJECT, flags, nil, nil, dacl, nil); err != nil {
+		return errors.New(applyErrMsg)
 	}
 	return nil
 }

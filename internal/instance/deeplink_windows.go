@@ -74,6 +74,13 @@ func readDeepLinkConn(conn net.Conn, handle func(string)) {
 	}
 }
 
+const ActivateToken = "__FERRY_ACTIVATE__"
+
+// ForwardActivate wakes the already-running Ferry window when launched again.
+func ForwardActivate(ctx context.Context) error {
+	return ForwardDeepLink(ctx, ActivateToken)
+}
+
 // ForwardDeepLink sends a single deep link to the already-running Ferry instance.
 func ForwardDeepLink(ctx context.Context, raw string) error {
 	pipe, _, err := deepLinkPipeName()

@@ -15,10 +15,11 @@ go mod download
 .\bin\Ferry.exe
 ```
 
-- `scripts\build.ps1`：构建前端静态资源（自动剔除仅浏览器调试使用的演示 chunk），并编译精简版 `bin\ferry-core.exe`（仅注册客户端所需协议）与 `bin\Ferry.exe`（零内核依赖）。
-- `scripts\test.ps1`：执行前端类型检查与构建、Go 源码尺寸检查（单文件 ≤ 800 行、单函数 ≤ 50 行）、`go vet`、全标签与默认标签测试、独立进程代理链路测试，以及 GUI 零 `sing-box` 依赖断言。
-- `scripts\package.ps1 -Version 0.1.0`：自动调用 NSIS（`makensis`）编译 `Ferry-0.1.0-windows-amd64-setup.exe` 安装程序，并同时生成便携版压缩包、GPL 对应源码归档与 SHA-256 校验文件。
-- `go run .\scripts\sign-release.go`：使用本地离线保存的 `ed25519` 私钥对新版本安装包生成签名更新清单（`manifest-stable.json` + `.sig`），直接上传至 GitHub Releases 即可供客户端在线更新。
+- `scripts\build.ps1`：构建前端静态资源（自动剔除仅浏览器调试使用的演示 chunk），注入版本号（`-Version`）并编译精简版 `bin\ferry-core.exe`（仅注册客户端所需协议）与 `bin\Ferry.exe`（零内核依赖）。
+- `scripts\test.ps1`：一键执行构建、前端类型检查 / 单元测试 / 无头浏览器全页面冒烟测试、Go 源码尺寸检查（单文件 ≤ 800 行、单函数 ≤ 50 行）、`go vet`、全标签与默认标签测试（含真实 `ferry-core.exe` 子进程崩溃恢复与端口释放压力测试），以及 GUI 零 `sing-box` 依赖断言。
+- `scripts\verify-machine.ps1`：非破坏性实机自检脚本，核对二进制版本与体积、WinINet 系统代理状态、`FerryCore` 系统服务故障恢复与指纹一致性，并运行真实子进程握手与端口释放闭环检测。
+- `scripts\package.ps1 -Version 0.2.0`：执行全量测试门禁后自动调用 NSIS（`makensis`）编译 `Ferry-0.2.0-windows-amd64-setup.exe` 安装程序（覆盖升级时自动停旧进程并同步刷新已安装的 `FerryCore` 服务），同时生成便携版压缩包、GPL 对应源码归档与 SHA-256 校验文件。
+- `go run .\scripts\sign-release.go` 与 `.github\workflows\{ci,release}.yml`：支持本地签名与 GitHub Actions 自动 CI 验证及 tag 自动打包签名发布。
 
 ## 核心特性
 

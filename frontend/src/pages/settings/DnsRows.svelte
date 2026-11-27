@@ -14,10 +14,7 @@
   let { value, disabled, onChange }: Props = $props();
 
   const serverHint = $derived(
-    tr(
-      '仅支持使用 IP 地址的 https、tls、tcp、udp 服务器，例如 https://1.1.1.1/dns-query',
-      'Supports IP-based https, tls, tcp, or udp servers only (e.g. https://1.1.1.1/dns-query)',
-    ),
+    tr('仅支持 IP 地址（如 https://1.1.1.1/dns-query）', 'IP addresses only (e.g. https://1.1.1.1/dns-query)'),
   );
 
   const strategies = $derived((void i18n.locale, optionsWith(dnsStrategyOptions(), value.dns.strategy)));
@@ -27,7 +24,7 @@
   }
 </script>
 
-<SettingRow title={tr('远程 DNS', 'Remote DNS')} desc={`${tr('经代理出口查询，也是默认的解析服务器。', 'Queried through proxy outbound (default resolver). ')}${serverHint}`} wide>
+<SettingRow title={tr('远程 DNS', 'Remote DNS')} desc={serverHint} wide>
   <label class="input server">
     <input
       type="text"
@@ -41,7 +38,7 @@
     />
   </label>
 </SettingRow>
-<SettingRow title={tr('直连 DNS', 'Direct DNS')} desc={tr('直连查询使用的解析服务器，格式要求同上', 'Resolver used for direct connections; same IP-only format')} wide>
+<SettingRow title={tr('直连 DNS', 'Direct DNS')} wide>
   <label class="input server">
     <input
       type="text"
@@ -55,7 +52,7 @@
     />
   </label>
 </SettingRow>
-<SettingRow title={tr('解析策略', 'DNS Strategy')} desc={tr('解析结果里 IPv4 与 IPv6 的取舍', 'IPv4 vs IPv6 preference for DNS responses')}>
+<SettingRow title={tr('解析策略', 'DNS Strategy')}>
   <select
     class="select"
     aria-label={tr('解析策略', 'DNS Strategy')}
@@ -68,7 +65,7 @@
     {/each}
   </select>
 </SettingRow>
-<SettingRow title="FakeIP" desc={tr('开启时 DNS 使用 fakeip 模式，关闭时使用 redirhost 模式', 'Use fakeip DNS mode when enabled, or redirhost when disabled')}>
+<SettingRow title="FakeIP">
   <Switch
     checked={value.tun.fakeIp}
     label="FakeIP"

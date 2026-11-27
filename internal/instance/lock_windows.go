@@ -6,6 +6,7 @@ package instance
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"golang.org/x/sys/windows"
 )
@@ -18,11 +19,40 @@ type Lock struct {
 }
 
 func Acquire() (*Lock, error) {
+	name, err := userMutexName()
+	if err != nil {
+		return nil, err
+	}
+	return acquire(name)
+}
+
+// AcquireWithTimeout retries acquiring the per-user mutex until timeout so an
+// elevated service-install restart can cleanly hand off from the exiting GUI.
+func AcquireWithTimeout(timeout time.Duration) (*Lock, error) {
+	name, err := userMutexName()
+	if err != nil {
+		return nil, err
+	}
+	return acquireWithTimeout(name, timeout)
+}
+
+func userMutexName() (string, error) {
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
-		return nil, errors.New("无法确定当前用户")
+		return "", errors.New("无法确定当前用户")
 	}
-	return acquire(`Global\Ferry.User.` + user.User.Sid.String())
+	return `Global\Ferry.User.` + user.User.Sid.String(), nil
+}
+
+func acquireWithTimeout(name string, timeout time.Duration) (*Lock, error) {
+	deadline := time.Now().Add(timeout)
+	for {
+		lock, err := acquire(name)
+		if err == nil || !errors.Is(err, ErrRunning) || !time.Now().Before(deadline) {
+			return lock, err
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func acquire(name string) (*Lock, error) {

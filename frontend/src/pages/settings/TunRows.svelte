@@ -27,8 +27,9 @@
 
   const svcLabel = $derived.by<string>(() => {
     if (svc === null) return tr('检测中…', 'Checking…');
-    if (svc.installed && svc.running) return tr('运行中（LocalSystem）', 'Running (LocalSystem)');
-    if (svc.installed) return tr('已安装（未运行）', 'Installed (Stopped)');
+    if (svc.installed && svc.needsRepair) return tr('需更新', 'Update Required');
+    if (svc.installed && svc.running) return tr('运行中', 'Running');
+    if (svc.installed) return tr('已停止', 'Stopped');
     return tr('未安装', 'Not Installed');
   });
 
@@ -79,9 +80,11 @@
       toasts.error(result.message);
       return;
     }
-    if (action === 'install') toasts.ok(tr('系统服务已安装并启动，现在可免 UAC 开启 TUN', 'Service installed and started; TUN ready without UAC'));
-    else if (action === 'repair') toasts.ok(tr('系统服务已修复并重新启动', 'Service repaired and restarted'));
-    else toasts.ok(tr('系统服务已卸载，已回退至用户态子进程模式', 'Service uninstalled; reverted to user process mode'));
+    if (action === 'install' || action === 'repair') {
+      toasts.ok(tr('系统服务已就绪，正在重启软件与内核…', 'Service ready; restarting Ferry and core…'));
+    } else {
+      toasts.ok(tr('系统服务已卸载', 'Service uninstalled'));
+    }
   }
 </script>
 
@@ -106,19 +109,12 @@
     <span class="chip num">{value.tun.mtu}</span>
   </SettingRow>
 {:else}
-  <SettingRow
-    title={tr('特权系统服务（FerryCore）', 'Privileged Windows Service (FerryCore)')}
-    desc={tr(
-      '通过一次 UAC 授权将内核安装到受保护的 ProgramData 目录（SHA-256 + 256 位随机密钥鉴权，无需商业签名证书），此后开关 TUN 不再弹窗。',
-      'One-time UAC installs FerryCore into admin-protected ProgramData with SHA-256 + 256-bit token auth (no code-signing cert required); toggling TUN needs no UAC afterwards.',
-    )}
-    wide
-  >
+  <SettingRow title={tr('系统服务', 'System Service')} wide>
     <div class="svc-actions">
       <span class="chip">{svcLabel}</span>
       {#if !svc?.installed}
         <button type="button" class="btn sm primary" aria-disabled={busy} onclick={() => void runService('install')}>
-          {system.serviceAction === 'install' ? tr('安装中…', 'Installing…') : tr('安装服务（UAC）', 'Install Service (UAC)')}
+          {system.serviceAction === 'install' ? tr('安装中…', 'Installing…') : tr('安装服务', 'Install Service')}
         </button>
       {:else}
         <button type="button" class="btn sm" aria-disabled={busy} onclick={() => void runService('repair')}>
@@ -130,7 +126,7 @@
       {/if}
     </div>
   </SettingRow>
-  <SettingRow title={tr('协议栈', 'TUN Stack')} desc={tr('mixed：TCP 走系统栈，UDP 走 gVisor', 'mixed: system TCP + gVisor UDP')}>
+  <SettingRow title={tr('协议栈', 'TUN Stack')}>
     <select
       class="select"
       aria-label={tr('协议栈', 'TUN Stack')}
@@ -143,7 +139,7 @@
       <option value="gvisor">gvisor</option>
     </select>
   </SettingRow>
-  <SettingRow title={tr('严格路由', 'Strict Route')} desc={tr('防止 DNS 泄漏，阻断绕过 TUN 的流量', 'Prevent DNS leaks and block bypass traffic')}>
+  <SettingRow title={tr('严格路由', 'Strict Route')}>
     <Switch
       checked={value.tun.strictRoute}
       disabled={!canTun || disabled}
@@ -151,7 +147,7 @@
       onchange={(next: boolean) => updateTun({ strictRoute: next })}
     />
   </SettingRow>
-  <SettingRow title={tr('FakeIP DNS', 'FakeIP DNS')} desc={tr('TUN 模式下推荐开启，加快域名分流响应', 'Recommended in TUN mode for fast domain routing')}>
+  <SettingRow title="FakeIP DNS">
     <Switch
       checked={value.tun.fakeIp}
       disabled={!canTun || disabled}
@@ -159,12 +155,7 @@
       onchange={(next: boolean) => updateTun({ fakeIp: next })}
     />
   </SettingRow>
-  <SettingRow
-    title={tr('排除网段', 'Excluded CIDRs')}
-    desc={tr('局域网、组播及自定义网段不进入 TUN（保存设置后生效）', 'LAN, multicast, and custom CIDRs bypassing TUN (applies on save)')}
-    error={cidrError}
-    wide
-  >
+  <SettingRow title={tr('排除网段', 'Excluded CIDRs')} error={cidrError} wide>
     <div class="cidr-box">
       <div class="cidr-bar">
         <label class="input cidr-in" class:invalid={cidrError !== ''}>
@@ -212,8 +203,6 @@
             </span>
           {/each}
         </div>
-      {:else}
-        <span class="muted empty-cidr">{tr('未配置自定义排除网段', 'No excluded CIDRs configured')}</span>
       {/if}
     </div>
   </SettingRow>
@@ -303,10 +292,6 @@
   .cidr-del:hover:not(:disabled) {
     color: var(--err);
     background: var(--muted-soft);
-  }
-
-  .empty-cidr {
-    font-size: 12px;
   }
 
   .mtu {

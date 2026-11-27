@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 const MaxBytes = 8 << 20
@@ -80,5 +81,18 @@ func atomicWrite(path string, data []byte) error {
 	if err := temp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(temp.Name(), path)
+	return renameRetry(temp.Name(), path)
+}
+
+func renameRetry(src, dst string) error {
+	var err error
+	for attempt := 0; attempt < 4; attempt++ {
+		if err = os.Rename(src, dst); err == nil {
+			return nil
+		}
+		if attempt < 3 {
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+	return err
 }

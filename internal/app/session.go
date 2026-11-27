@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"ferry/internal/ipc"
+	"ferry/internal/release"
 	"ferry/internal/spec"
 )
 
@@ -40,12 +41,13 @@ type Session struct {
 	configDir       string
 	logDir          string
 	openDir         DirectoryOpener
-	lightweightHook func(bool) error
-	languageHook    func(string)
-	screenCapture   func() (string, error)
-	deepLinkReg     DeepLinkRegistrar
-	updater         updateRuntime
-	lastRuleSetSync int64
+	lightweightHook  func(bool) error
+	languageHook     func(string)
+	screenCapture    func() (string, error)
+	deepLinkReg      DeepLinkRegistrar
+	serviceRestarter func(startCore, restoreProxy bool) error
+	updater          updateRuntime
+	lastRuleSetSync  int64
 }
 
 func NewSession(remote Remote) *Session {
@@ -60,7 +62,7 @@ func (s *Session) state(ctx context.Context) ipc.State {
 		state = ipc.State{Status: "error", Error: "内核连接已断开，请重新启动"}
 	}
 	state.Mode = s.config.Mode
-	state.Version = currentAppVersion
+	state.Version = release.Version
 	if state.CoreVersion == "" {
 		state.CoreVersion = "1.14.4"
 	}

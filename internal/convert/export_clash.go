@@ -19,7 +19,7 @@ func exportClash(o map[string]any) (map[string]any, error) {
 			r[key] = value
 		}
 	}
-	for key, field := range map[string]string{"method": "cipher", "security": "cipher", "alter_id": "alterId", "up_mbps": "up", "down_mbps": "down", "congestion_control": "congestion-controller", "udp_relay_mode": "udp-relay-mode"} {
+	for key, field := range map[string]string{"flow": "flow", "method": "cipher", "security": "cipher", "alter_id": "alterId", "up_mbps": "up", "down_mbps": "down", "congestion_control": "congestion-controller", "udp_relay_mode": "udp-relay-mode"} {
 		if value, ok := o[key]; ok {
 			r[field] = value
 		}
@@ -30,7 +30,7 @@ func exportClash(o map[string]any) (map[string]any, error) {
 		}
 		r["udp"] = false
 	}
-	if o["flow"] != nil || o["zero_rtt_handshake"] != nil {
+	if o["zero_rtt_handshake"] != nil {
 		return nil, errors.New("此节点参数尚不支持 Clash 导出，请使用 sing-box JSON")
 	}
 	if err := exportClashTLS(r, o); err != nil {

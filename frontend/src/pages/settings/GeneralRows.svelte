@@ -40,11 +40,7 @@
   }
 </script>
 
-<SettingRow
-  title={tr('主题', 'Theme')}
-  desc={tr('立即生效并保存在本机；保存设置时会一并写入后端', 'Applies immediately and persists locally; also written to backend on save')}
-  wide
->
+<SettingRow title={tr('主题', 'Theme')} wide>
   <Segmented
     options={themeOptions()}
     value={theme.choice}
@@ -54,9 +50,7 @@
 </SettingRow>
 <SettingRow
   title={tr('开机自启', 'Launch at Startup')}
-  desc={canAutomate
-    ? tr('登录 Windows 后自动启动 Ferry（写入当前用户启动项，无需管理员权限）', 'Automatically launch Ferry when signing in to Windows (per-user Run key)')
-    : tr('登录 Windows 后自动启动 Ferry；当前版本不提供', 'Automatically launch Ferry on sign-in; unavailable in this backend')}
+  desc={canAutomate ? '' : tr('当前版本不提供', 'Unavailable in this backend')}
   tag={canAutomate ? '' : NOT_OPEN}
 >
   <Switch
@@ -68,9 +62,7 @@
 </SettingRow>
 <SettingRow
   title={tr('启动时最小化', 'Start Minimized')}
-  desc={canAutomate
-    ? tr('启动后直接收进系统托盘，不弹出主窗口', 'Start directly in the system tray without showing the main window')
-    : tr('启动后不显示主窗口；当前版本不提供', 'Start without showing the main window; unavailable in this backend')}
+  desc={canAutomate ? '' : tr('当前版本不提供', 'Unavailable in this backend')}
   tag={canAutomate ? '' : NOT_OPEN}
 >
   <Switch
@@ -82,9 +74,7 @@
 </SettingRow>
 <SettingRow
   title={tr('轻量模式', 'Lightweight Mode')}
-  desc={canAutomate
-    ? tr('窗口收进托盘后降低后台轮询频率并减少界面占用', 'Reduce background polling and memory footprint when minimized to tray')
-    : tr('关闭窗口时释放界面占用的内存，只保留托盘与内核；当前版本不提供', 'Release UI overhead when hidden to tray; unavailable in this backend')}
+  desc={canAutomate ? tr('收进托盘后释放界面内存', 'Release UI memory when minimized to tray') : tr('当前版本不提供', 'Unavailable in this backend')}
   tag={canAutomate ? '' : NOT_OPEN}
 >
   <Switch
@@ -94,11 +84,7 @@
     onchange={(next: boolean) => update({ lightweight: next })}
   />
 </SettingRow>
-<SettingRow
-  title={tr('语言', 'Language')}
-  desc={tr('支持简体中文与 English，切换后立即生效', 'Supports Simplified Chinese and English; applies immediately')}
-  wide
->
+<SettingRow title={tr('语言', 'Language')} wide>
   <Segmented
     options={LOCALE_OPTIONS}
     value={i18n.locale}
@@ -107,13 +93,7 @@
   />
 </SettingRow>
 {#if canDeepLinkReg}
-  <SettingRow
-    title={tr('系统深链协议（ferry://）', 'Protocol Handler (ferry://)')}
-    desc={tr(
-      '在当前 Windows 用户下注册 ferry:// 链接关联（免管理员权限，适合便携版一键导入）',
-      'Register ferry:// URL handler under current Windows user (no UAC needed for portable builds)',
-    )}
-  >
+  <SettingRow title={tr('系统深链协议（ferry://）', 'Protocol Handler (ferry://)')}>
     <Switch
       checked={system.deepLinkRegistered}
       disabled={system.deepLinkBusy}

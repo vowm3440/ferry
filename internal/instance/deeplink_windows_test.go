@@ -45,6 +45,17 @@ func TestDeepLinkPipeForwarding(t *testing.T) {
 	if err := forwardDeepLinkPipe(ctx, pipe+"-missing", want); err == nil {
 		t.Fatal("expected missing pipe to fail")
 	}
+	if err := forwardDeepLinkPipe(ctx, pipe, ActivateToken); err != nil {
+		t.Fatalf("forwardDeepLinkPipe(ActivateToken) failed: %v", err)
+	}
+	select {
+	case actual := <-got:
+		if actual != ActivateToken {
+			t.Fatalf("got %q, want %q", actual, ActivateToken)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for activate signal")
+	}
 	if lock, err := Acquire(); err == nil {
 		_ = lock.Close()
 	}

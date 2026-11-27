@@ -16,7 +16,7 @@
   const apiModeLabel = $derived(value.clashApiMode === 'random' ? tr('随机端口', 'Random Port') : value.clashApiMode);
 </script>
 
-<SettingRow title={tr('日志级别', 'Log Level')} desc={tr('内核日志的详细程度；内核运行时可在「日志」页查看', 'Verbosity of core logs; view live logs in Logs')}>
+<SettingRow title={tr('日志级别', 'Log Level')}>
   <select
     class="select"
     aria-label={tr('日志级别', 'Log Level')}
@@ -29,6 +29,6 @@
     {/each}
   </select>
 </SettingRow>
-<SettingRow title={tr('内核控制接口', 'Core Control Endpoint')} desc={tr('固定使用随机端口，界面不直接访问该接口', 'Always bound to a loopback random port with secret auth')}>
+<SettingRow title={tr('内核控制接口', 'Core Control Endpoint')}>
   <span class="chip">{apiModeLabel}</span>
 </SettingRow>

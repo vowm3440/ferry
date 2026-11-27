@@ -3,7 +3,9 @@
 package app
 
 import (
+	"errors"
 	"ferry/internal/ipc"
+	"ferry/internal/release"
 	"path/filepath"
 )
 
@@ -24,16 +26,31 @@ func NewWindowsServiceController(guiExe, coreExe string, onModeChanged func() er
 }
 
 func (c *WindowsServiceController) Status() (ServiceStatus, error) {
-	info, err := ipc.QueryServiceStatus(ipc.ServiceName)
+	installed, running, needsRepair, startType, err := ipc.InspectService(c.guiExe)
 	if err != nil {
 		return ServiceStatus{StartType: "disabled"}, err
 	}
 	return ServiceStatus{
-		Installed: info.Installed,
-		Running:   info.Running,
-		StartType: info.StartType,
-		Version:   currentAppVersion,
+		Installed:   installed,
+		Running:     running,
+		NeedsRepair: needsRepair,
+		StartType:   startType,
+		Version:     release.Version,
 	}, nil
+}
+
+func (c *WindowsServiceController) EnsureRunning() error {
+	if err := ipc.StartWindowsService(ipc.ServiceName); err != nil {
+		return err
+	}
+	installed, running, needsRepair, _, err := ipc.InspectService(c.guiExe)
+	if err != nil || !installed || !running || needsRepair {
+		return errors.New("系统服务异常或需要更新，请修复服务")
+	}
+	if c.onModeChanged != nil {
+		_ = c.onModeChanged()
+	}
+	return nil
 }
 
 func (c *WindowsServiceController) Install() error {
@@ -56,6 +73,9 @@ func (c *WindowsServiceController) runElevated(subcommand string, withIdentity b
 			return err
 		}
 		args = append(args, "--user-sid", sid, "--gui-exe", c.guiExe)
+	}
+	if c.onModeChanged != nil {
+		_ = c.onModeChanged()
 	}
 	if err := ipc.RunElevated(c.coreExe, args); err != nil {
 		return err

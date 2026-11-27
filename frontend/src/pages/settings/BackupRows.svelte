@@ -114,41 +114,17 @@
   }
 </script>
 
-<SettingRow
-  title={tr('导出备份', 'Export Backup')}
-  desc={tr(
-    '把全部节点、订阅、规则和设置保存为一个文件。文件用 Windows 数据保护（DPAPI）加密，只能在这台电脑的当前 Windows 账户下恢复；需要保存到一个尚不存在的文件。',
-    'Save all nodes, subscriptions, rules, and settings into one DPAPI-encrypted file bound to your current Windows account. Must save to a new file.',
-  )}
-  tag={backupBlock}
-  error={errors.backup}
->
+<SettingRow title={tr('导出备份', 'Export Backup')} tag={backupBlock} error={errors.backup}>
   <button type="button" class="btn" data-action="backup-export" disabled={backupBlock !== ''} aria-disabled={busy} onclick={() => void exportBackup()}>
     {system.task === 'backup' ? tr('正在导出…', 'Exporting…') : tr('导出备份…', 'Export Backup…')}
   </button>
 </SettingRow>
-<SettingRow
-  title={tr('从备份恢复', 'Restore from Backup')}
-  desc={tr(
-    '用备份文件替换当前的全部节点、订阅、规则和设置。只能恢复由当前 Windows 账户导出的备份。',
-    'Replace all current nodes, subscriptions, rules, and settings from a backup exported by this Windows account.',
-  )}
-  tag={backupBlock}
-  error={errors.restore}
->
+<SettingRow title={tr('从备份恢复', 'Restore from Backup')} tag={backupBlock} error={errors.restore}>
   <button type="button" class="btn" data-action="backup-restore" disabled={backupBlock !== ''} aria-disabled={busy} onclick={() => void chooseRestore()}>
     {system.task === 'restore' ? tr('正在恢复…', 'Restoring…') : tr('从备份恢复…', 'Restore Backup…')}
   </button>
 </SettingRow>
-<SettingRow
-  title={tr('导出诊断包', 'Export Diagnostics')}
-  desc={tr(
-    '反馈问题时使用。只包含版本、运行状态和数量统计，不含节点、地址和日志。',
-    'For bug reports. Includes only versions, runtime status, and item counts; never nodes, addresses, or logs.',
-  )}
-  tag={diagnosticsBlock}
-  error={errors.diagnostics}
->
+<SettingRow title={tr('导出诊断包', 'Export Diagnostics')} tag={diagnosticsBlock} error={errors.diagnostics}>
   <button
     type="button"
     class="btn"
@@ -163,7 +139,7 @@
   </button>
 </SettingRow>
 {#if canTools}
-  <SettingRow title={tr('本地数据目录', 'Local Data Folders')} desc={tr('在资源管理器中打开配置或日志目录', 'Open config or log folder in Explorer')}>
+  <SettingRow title={tr('本地数据目录', 'Local Data Folders')}>
     <div class="dir-actions">
       <button type="button" class="btn sm" onclick={() => void openDir('config')}>{tr('配置目录', 'Config Dir')}</button>
       <button type="button" class="btn sm" onclick={() => void openDir('log')}>{tr('日志目录', 'Log Dir')}</button>
