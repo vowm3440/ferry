@@ -1,0 +1,28 @@
+{
+  "log": {"level": "info"},
+  "dns": {
+    "servers": [
+      {"type":"https","tag":"__dns_remote","server":"1.1.1.1","path":"/dns-query","detour":"proxy"},
+      {"type":"https","tag":"__dns_direct","server":"223.5.5.5","path":"/dns-query"}
+    ],
+    "rules":[{"clash_mode":"direct","server":"__dns_direct"}],
+    "final":"__dns_remote","strategy":"prefer_ipv4"
+  },
+  "inbounds":[{"type":"mixed","tag":"__mixed","listen":"127.0.0.1","listen_port":7890}],
+  "outbounds":[
+    {"type":"socks","tag":"n1","server":"127.0.0.1","server_port":1080},
+    {"type":"selector","tag":"proxy","outbounds":["n1"],"default":"n1"},
+    {"type":"direct","tag":"__direct"}
+  ],
+  "route":{
+    "rules":[
+      {"action":"sniff"},
+      {"protocol":"dns","action":"hijack-dns"},
+      {"clash_mode":"direct","outbound":"__direct"},
+      {"clash_mode":"global","outbound":"proxy"},
+      {"ip_cidr":["0.0.0.0/8","10.0.0.0/8","127.0.0.0/8","169.254.0.0/16","172.16.0.0/12","192.168.0.0/16","224.0.0.0/4","255.255.255.255/32","::/128","::1/128","fc00::/7","fe80::/10","ff00::/8"],"outbound":"__direct"},
+      {"outbound":"proxy"}
+    ],
+    "final":"proxy","default_domain_resolver":"__dns_direct"
+  }
+}

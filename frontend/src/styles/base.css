@@ -1,0 +1,649 @@
+/* 全局基础样式与跨页面复用的原子类。页面专属布局写在各页面组件内。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+textarea,
+.selectable {
+  user-select: text;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+svg.i {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--text-3);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 应用外壳 ---------- */
+#app {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 212px minmax(0, 1fr);
+  background: var(--bg);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 24px 24px;
+  /* 页面用 @container content 按内容宽度自适应，窗口缩放时比媒体查询更准。 */
+  container-type: inline-size;
+  container-name: content;
+}
+
+.content::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 10px;
+  border: 3px solid var(--bg);
+}
+
+.page {
+  animation: page-in 0.18s var(--ease);
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 14px;
+}
+
+.page-head h1 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.page-head .sub {
+  color: var(--text-3);
+  font-size: 12px;
+  margin-left: 2px;
+  margin-top: 5px;
+}
+
+.page-head .actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ---------- 原子类 ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.card-head .muted {
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.card-head .right {
+  margin-left: auto;
+}
+
+.btn {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  transition:
+    background var(--dur),
+    border-color var(--dur);
+}
+
+.btn:hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--surface-3);
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+
+.btn.primary:hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--accent-strong);
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+
+.btn.ghost:hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--muted-soft);
+  color: var(--text);
+}
+
+.btn.danger {
+  color: var(--err);
+}
+
+.btn.sm {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.btn svg.i {
+  width: 14px;
+  height: 14px;
+}
+
+.btn:disabled,
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/*
+ * 「处理中」用 aria-disabled 而不是 disabled：被禁用的按钮会丢掉键盘焦点，
+ * 操作结束后键盘用户得重新找回位置。这里只管外观，是否响应由各自的点击处理决定。
+ */
+.btn[aria-disabled='true'],
+.icon-btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.icon-btn:hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--muted-soft);
+  color: var(--text);
+}
+
+.input {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-3);
+  min-width: 200px;
+  transition: border-color var(--dur);
+}
+
+.input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.input.invalid {
+  border-color: var(--err);
+}
+
+.input input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  width: 100%;
+  min-width: 0;
+}
+
+.input input:disabled {
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+.input svg.i {
+  width: 14px;
+  height: 14px;
+}
+
+.select {
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--muted-soft);
+  color: var(--text-2);
+}
+
+.pill.proxy {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.pill.direct {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.pill.block {
+  background: var(--err-soft);
+  color: var(--err);
+}
+
+.pill.phase {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.cc {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font: 600 10px/1 var(--font-sans);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  background: var(--surface-3);
+  color: var(--text-2);
+  flex: none;
+}
+
+.lat {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lat.ok {
+  color: var(--ok);
+}
+
+.lat.warn {
+  color: var(--warn);
+}
+
+.lat.err {
+  color: var(--err);
+}
+
+.lat.none {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex: none;
+}
+
+.dot.ok {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px var(--ok-soft);
+}
+
+.dot.warn {
+  background: var(--warn);
+  box-shadow: 0 0 0 3px var(--warn-soft);
+}
+
+.dot.err {
+  background: var(--err);
+  box-shadow: 0 0 0 3px var(--err-soft);
+}
+
+.inline-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  border: 1px solid var(--err-soft);
+  background: var(--err-soft);
+  color: var(--err);
+  font-size: 12.5px;
+  user-select: text;
+}
+
+.inline-error svg.i {
+  margin-top: 2px;
+}
+
+.inline-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.inline-note svg.i {
+  margin-top: 2px;
+  color: var(--text-3);
+}
+
+/* ---------- 表单：.field 包住「标签 + 控件 + 说明」，.control 是输入框本体 ---------- */
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field > .label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.field > .hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.field > .hint.err {
+  color: var(--err);
+}
+
+.control {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  transition: border-color var(--dur);
+}
+
+textarea.control {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.control::placeholder {
+  color: var(--text-3);
+}
+
+.control:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+
+.control.invalid,
+.control[aria-invalid='true'] {
+  border-color: var(--err);
+}
+
+.control:disabled {
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+/* ---------- 表格：窄窗口里由 .tbl-wrap 横向滚动，不撑破页面 ---------- */
+.tbl-wrap {
+  overflow-x: auto;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.tbl th {
+  height: 34px;
+  padding: 0 10px;
+  text-align: left;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.tbl td {
+  height: 42px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.tbl tr:last-child td {
+  border-bottom: 0;
+}
+
+.tbl tbody tr:hover td {
+  background: var(--muted-soft);
+}
+
+.tbl .r {
+  text-align: right;
+}
+
+/* ---------- 进度条：宽度由内联的 width 百分比给出 ---------- */
+.bar {
+  height: 6px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--accent);
+}
+
+.bar.warn > i {
+  background: var(--warn);
+}
+
+.bar.err > i {
+  background: var(--err);
+}
+
+.pill.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+/* ---------- 处理中的图标：给图标的父元素加 .spin ---------- */
+.spin > svg.i {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #app {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .content {
+    padding: 4px 14px 18px;
+  }
+}

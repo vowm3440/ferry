@@ -1,0 +1,15 @@
+.spike/
+.keys/
+bin/
+dist/
+frontend/dist/
+internal/ui/dist/
+node_modules/
+*.exe
+*.db
+*.tmp
+*.dat
+*.log
+*.key
+*.pem
+coverage*

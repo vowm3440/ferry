@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ferry · UI Mockup</title>
+<style>
+:root{
+  --font-sans:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI","PingFang SC","Noto Sans SC","Noto Sans CJK SC",system-ui,-apple-system,sans-serif;
+  --font-mono:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",ui-monospace,monospace;
+  --r-sm:6px;--r:8px;--r-lg:12px;--ease:cubic-bezier(.2,.8,.2,1);
+}
+[data-theme=dark]{
+  --canvas:#08090b;--sidebar:#0e1013;--bg:#121418;--surface:#171a1f;--surface-2:#1d2026;--surface-3:#252930;
+  --border:#24282f;--border-strong:#313641;--text:#e8eaef;--text-2:#a1a7b3;--text-3:#6a717e;
+  --accent:#6f8dff;--accent-strong:#8ea6ff;--accent-soft:rgba(111,141,255,.14);--accent-ring:rgba(111,141,255,.45);
+  --ok:#3fcf8e;--ok-soft:rgba(63,207,142,.13);--warn:#f0b54a;--warn-soft:rgba(240,181,74,.13);
+  --err:#f06b6b;--err-soft:rgba(240,107,107,.13);--muted-soft:rgba(255,255,255,.05);
+  --shadow:0 24px 64px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06);
+  --mica:linear-gradient(160deg,#141826 0%,#0f1115 45%,#0e1013 100%);
+}
+[data-theme=light]{
+  --canvas:#dfe3ea;--sidebar:#f2f4f7;--bg:#f9fafb;--surface:#fff;--surface-2:#f3f4f7;--surface-3:#eaecf0;
+  --border:#e3e6eb;--border-strong:#d3d8df;--text:#14161b;--text-2:#555d6b;--text-3:#8a919e;
+  --accent:#3c63ef;--accent-strong:#2c51d8;--accent-soft:rgba(60,99,239,.09);--accent-ring:rgba(60,99,239,.35);
+  --ok:#139e62;--ok-soft:rgba(19,158,98,.10);--warn:#c4850c;--warn-soft:rgba(196,133,12,.11);
+  --err:#de4548;--err-soft:rgba(222,69,72,.09);--muted-soft:rgba(0,0,0,.035);
+  --shadow:0 24px 64px rgba(30,40,60,.18),0 0 0 1px rgba(0,0,0,.06);
+  --mica:linear-gradient(160deg,#eef1fb 0%,#f2f4f7 45%,#f2f4f7 100%);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+.standalone body{background:var(--canvas);display:flex;align-items:center;justify-content:center;padding:28px}
+button{font:inherit;color:inherit}
+svg.i{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--text-3)}
+.mono{font-family:var(--font-mono);font-size:12px}
+
+/* ---------- window ---------- */
+.window{width:1180px;height:760px;display:grid;grid-template-columns:212px 1fr;border-radius:10px;overflow:hidden;margin:0 auto;
+  background:var(--bg);box-shadow:0 0 0 1px var(--border-strong);font:13px/1.5 var(--font-sans);color:var(--text);-webkit-font-smoothing:antialiased}
+.standalone .window{box-shadow:var(--shadow)}
+.sidebar{background:var(--mica);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:10px 10px 12px}
+.brand{display:flex;align-items:center;gap:10px;height:36px;padding:0 8px;margin-bottom:10px;-webkit-app-region:drag}
+.logo{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#9b7bff);display:grid;place-items:center;color:#fff}
+.logo svg{width:14px;height:14px}
+.brand b{font-size:14px;font-weight:600;letter-spacing:.2px}
+.brand span{color:var(--text-3);font-size:12px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{position:relative;display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:var(--r);
+  color:var(--text-2);text-decoration:none;cursor:pointer;transition:background .15s var(--ease),color .15s}
+.nav a:hover{background:var(--muted-soft);color:var(--text)}
+.nav a.active{background:var(--accent-soft);color:var(--text)}
+.nav a.active::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--accent)}
+.nav a.active svg{color:var(--accent-strong)}
+.nav .count{margin-left:auto;font-size:11px;color:var(--text-3)}
+.nav-sep{height:1px;background:var(--border);margin:8px 6px}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.core-chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);background:var(--muted-soft);font-size:12px;color:var(--text-2)}
+.core-chip .grow{flex:1}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--text-3);flex:none}
+.dot.ok{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.icon-btn{width:30px;height:30px;display:grid;place-items:center;border:0;background:transparent;border-radius:var(--r-sm);color:var(--text-2);cursor:pointer}
+.icon-btn:hover{background:var(--muted-soft);color:var(--text)}
+
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.titlebar{height:36px;flex:none;display:flex;align-items:center;-webkit-app-region:drag}
+.titlebar .crumb{padding-left:24px;font-size:12px;color:var(--text-3)}
+.caption{margin-left:auto;display:flex;-webkit-app-region:no-drag}
+.caption button{width:46px;height:36px;border:0;background:transparent;display:grid;place-items:center;color:var(--text-2);cursor:default}
+.caption button:hover{background:var(--muted-soft)}
+.caption button.close:hover{background:#c42b1c;color:#fff}
+.caption svg{width:10px;height:10px;stroke:currentColor;stroke-width:1;fill:none}
+.content{flex:1;overflow:auto;padding:4px 24px 24px}
+.content::-webkit-scrollbar{width:10px}
+.content::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:10px;border:3px solid var(--bg)}
+.page{display:none}
+.page.show{display:block;animation:fade .18s var(--ease)}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.page-head{display:flex;align-items:center;gap:10px;height:44px;margin-bottom:14px}
+.page-head h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.2px}
+.page-head .sub{color:var(--text-3);font-size:12px;margin-left:2px;margin-top:5px}
+.page-head .actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+/* ---------- primitives ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px}
+.card-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:600;font-size:13px}
+.card-head .muted{font-weight:400;font-size:12px}
+.card-head .right{margin-left:auto}
+.btn{height:30px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border-radius:7px;border:1px solid var(--border-strong);
+  background:var(--surface-2);cursor:pointer;font-size:13px;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn:hover{background:var(--surface-3)}
+.btn.primary{background:var(--accent);border-color:transparent;color:#fff}
+.btn.primary:hover{background:var(--accent-strong)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--text-2)}
+.btn.ghost:hover{background:var(--muted-soft);color:var(--text)}
+.btn.sm{height:26px;padding:0 9px;font-size:12px}
+.btn svg.i{width:14px;height:14px}
+.input{height:30px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-3);min-width:200px}
+.input input{border:0;outline:0;background:transparent;color:var(--text);font:inherit;width:100%}
+.input svg.i{width:14px;height:14px}
+.seg{display:inline-flex;padding:2px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border)}
+.seg button{height:26px;padding:0 14px;border:0;border-radius:7px;background:transparent;color:var(--text-2);cursor:pointer;font-size:12.5px}
+.seg button.on{background:var(--surface-3);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+[data-theme=light] .seg button.on{background:#fff}
+.switch{display:inline-block;vertical-align:middle;width:34px;height:20px;border-radius:20px;background:var(--surface-3);border:1px solid var(--border-strong);position:relative;flex:none;transition:background .18s var(--ease)}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text-2);transition:transform .18s var(--ease),background .18s}
+.switch.on{background:var(--accent);border-color:transparent}
+.switch.on::after{transform:translateX(14px);background:#fff}
+.pill{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px;border-radius:999px;font-size:11.5px;font-weight:500;white-space:nowrap;background:var(--muted-soft);color:var(--text-2)}
+.pill.proxy{background:var(--accent-soft);color:var(--accent-strong)}
+.pill.direct{background:var(--ok-soft);color:var(--ok)}
+.pill.block{background:var(--err-soft);color:var(--err)}
+.chip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;font-size:11.5px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);white-space:nowrap}
+.chip.set{color:var(--accent-strong);border-color:transparent;background:var(--accent-soft)}
+.cc{display:inline-grid;place-items:center;min-width:24px;height:18px;padding:0 4px;border-radius:4px;font:600 10px/1 var(--font-sans);letter-spacing:.4px;
+  background:var(--surface-3);color:var(--text-2);flex:none}
+.lat{font-variant-numeric:tabular-nums;font-size:12px;font-weight:600}
+.lat.ok{color:var(--ok)}.lat.warn{color:var(--warn)}.lat.err{color:var(--err)}.lat.none{color:var(--text-3);font-weight:500}
+.bar{height:6px;border-radius:6px;background:var(--surface-3);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:6px;background:var(--accent)}
+
+/* ---------- overview ---------- */
+.ov{display:grid;grid-template-columns:1.3fr 1fr;gap:12px}
+.span2{grid-column:span 2}
+.hero{display:flex;flex-direction:column;gap:14px}
+.hero-top{display:flex;align-items:center;gap:14px}
+.power{width:52px;height:52px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;color:#fff;
+  background:linear-gradient(140deg,var(--accent),#9a7cff);box-shadow:0 0 0 6px var(--accent-soft),0 8px 20px rgba(111,141,255,.35)}
+.power svg.i{width:22px;height:22px;stroke-width:2.2}
+.status-line{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:600}
+.hero .sub{color:var(--text-3);font-size:12px;margin-top:2px}
+.hero-top .seg{margin-left:auto}
+.cur-node{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--border)}
+.cur-node .meta{flex:1;min-width:0}
+.cur-node .name{font-weight:600}
+.cur-node .meta div:last-child{font-size:12px;color:var(--text-3)}
+.toggles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{display:flex;align-items:center;gap:10px;padding:12px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:border-color .15s}
+.tile:hover{border-color:var(--border-strong)}
+.tile.on{border-color:var(--accent-ring);background:linear-gradient(0deg,var(--accent-soft),var(--accent-soft)),var(--surface)}
+.tile .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--surface-3);color:var(--text-2)}
+.tile.on .ic{background:var(--accent);color:#fff}
+.tile .t{font-weight:600}
+.tile .d{font-size:12px;color:var(--text-3)}
+.tile .grow{flex:1;min-width:0}
+.rates{display:flex;gap:28px;margin:2px 0 10px}
+.rate{display:flex;align-items:baseline;gap:6px}
+.rate svg.i{align-self:center;width:15px;height:15px}
+.rate.up svg{color:#a68bff}.rate.down svg{color:var(--accent)}
+.rate .v{font-size:24px;font-weight:600;letter-spacing:-.3px}
+.rate .u{font-size:12px;color:var(--text-3)}
+.spark{width:100%;height:96px;display:block}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat{padding:14px 16px}
+.stat .k{font-size:12px;color:var(--text-3)}
+.stat .v{font-size:20px;font-weight:600;margin-top:2px}
+.stat .v small{font-size:12px;font-weight:500;color:var(--text-3);margin-left:3px}
+.sub-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sub-row .name{font-weight:600}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;font-size:12px}
+.kv div span{display:block;color:var(--text-3)}
+.apps{display:flex;flex-direction:column;gap:9px}
+.app-row{display:grid;grid-template-columns:22px 1fr 58px 72px;align-items:center;gap:10px}
+.av{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff}
+.app-row .nm{display:flex;flex-direction:column;min-width:0}
+.app-row .nm b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app-row .bar{height:4px;margin-top:4px}
+.app-row .amt{text-align:right;font-size:12px;color:var(--text-2)}
+
+/* ---------- proxies ---------- */
+.group{margin-bottom:12px;padding:0;overflow:hidden}
+.group-h{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.group-h .gname{font-weight:600}
+.group-h .gcur{color:var(--text-3);font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.group-h .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.group-h .chev{color:var(--text-3);transition:transform .18s}
+.group.closed .chev{transform:rotate(-90deg)}
+.group.closed .nodes{display:none}
+.nodes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 14px 14px}
+.node{display:flex;flex-direction:column;gap:6px;padding:10px 11px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface-2);cursor:pointer;text-align:left;
+  transition:border-color .15s,background .15s}
+.node:hover{border-color:var(--border-strong)}
+.node.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:var(--surface)}
+.node .top{display:flex;align-items:center;gap:7px;min-width:0}
+.node .nn{font-weight:500;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.node .bot{display:flex;align-items:center;justify-content:space-between}
+.node .proto{font-size:11px;color:var(--text-3)}
+
+/* ---------- tables ---------- */
+.tbl{width:100%;border-collapse:separate;border-spacing:0}
+.tbl th{height:34px;text-align:left;font-weight:500;font-size:12px;color:var(--text-3);padding:0 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{height:42px;padding:0 10px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+.tbl td.host{max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tbody tr:hover td{background:var(--muted-soft)}
+.tbl .grip{color:var(--text-3);cursor:grab;width:28px;padding-right:0}
+.tbl .idx{color:var(--text-3);width:26px;font-size:12px}
+.chips{display:flex;gap:4px;flex-wrap:nowrap;overflow:hidden;max-width:230px}
+.tbl tr.pinned td{background:var(--muted-soft)}
+.tbl tr.off td:not(:first-child):not(:nth-child(2)){opacity:.45}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.tabs button{height:34px;padding:0 12px;border:0;background:transparent;color:var(--text-2);cursor:pointer;position:relative}
+.tabs button.on{color:var(--text)}
+.tabs button.on::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;border-radius:2px;background:var(--accent)}
+.tester{margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tester .input{min-width:0}
+.tester .result{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12.5px;color:var(--text-2)}
+.tester .result b{color:var(--text)}
+
+/* ---------- subscriptions ---------- */
+.import{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.imp{display:flex;align-items:center;gap:10px;padding:12px;border-radius:var(--r);border:1px dashed var(--border-strong);background:transparent;cursor:pointer;color:var(--text-2);text-align:left}
+.imp:hover{border-color:var(--accent);color:var(--text);background:var(--accent-soft)}
+.imp .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--surface-2)}
+.imp b{display:block;color:var(--text);font-weight:500}
+.imp span{font-size:11.5px;color:var(--text-3)}
+.subs{display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start}
+.sub-list{display:flex;flex-direction:column;gap:10px}
+.sub-card .top{display:flex;align-items:center;gap:10px}
+.sub-card .title{font-weight:600}
+.sub-card .url{font-size:12px;color:var(--text-3)}
+.sub-card .acts{margin-left:auto;display:flex;gap:4px}
+.sub-card .usage{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin:12px 0 6px}
+.sub-card.active{border-color:var(--accent-ring)}
+.share .fmt{margin-bottom:12px}
+.qr{display:grid;place-items:center;padding:12px;background:#fff;border-radius:10px;width:172px;height:172px;margin:0 auto 12px}
+.deeplinks{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.lan{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--border);font-size:12px}
+.lan .grow{flex:1;min-width:0}
+.lan code{display:block;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- connections ---------- */
+.conn-sum{display:flex;gap:18px;align-items:center;margin-bottom:10px;font-size:12px;color:var(--text-2)}
+.filters{display:flex;gap:6px}
+.app-cell{display:flex;align-items:center;gap:8px}
+.app-cell b{font-weight:500}
+.host{font-family:var(--font-mono);font-size:12px}
+.chain{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);white-space:nowrap}
+.chain svg.i{width:12px;height:12px;color:var(--text-3)}
+.row-act{opacity:0;transition:opacity .12s}
+tr:hover .row-act{opacity:1}
+
+/* ---------- logs ---------- */
+.log{font-family:var(--font-mono);font-size:12px;line-height:22px;padding:8px 0}
+.log div{display:grid;grid-template-columns:90px 56px 1fr;gap:10px;padding:0 14px}
+.log div:hover{background:var(--muted-soft)}
+.lv{font-weight:600}.lv.info{color:var(--accent-strong)}.lv.warn{color:var(--warn)}.lv.error{color:var(--err)}.lv.debug{color:var(--text-3)}
+
+/* ---------- settings ---------- */
+.set-wrap{display:grid;grid-template-columns:168px 1fr;gap:18px}
+.set-nav{display:flex;flex-direction:column;gap:2px;position:sticky;top:0}
+.set-nav a{padding:7px 10px;border-radius:7px;color:var(--text-2);cursor:pointer}
+.set-nav a.on{background:var(--muted-soft);color:var(--text)}
+.set-sec{margin-bottom:16px}
+.set-sec h3{font-size:13px;margin:0 0 8px;color:var(--text-2);font-weight:600}
+.set-sec .card{padding:0}
+.srow{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.srow:last-child{border-bottom:0}
+.srow .grow{flex:1}
+.srow .t{font-weight:500}
+.srow .d{font-size:12px;color:var(--text-3)}
+.select{height:28px;display:inline-flex;align-items:center;gap:8px;padding:0 10px;border-radius:7px;border:1px solid var(--border-strong);background:var(--surface-2);font-size:12.5px}
+.svc{display:flex;align-items:center;gap:8px}
+</style>
+<script>
+(function(){var d=document.documentElement;var top=true;try{top=window.top===window}catch(e){top=false}
+if(top)d.classList.add('standalone');
+if(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)d.dataset.theme='light';})();
+</script>
+</head>
+<body>
+<div class="window">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"><svg class="i" viewBox="0 0 24 24"><path d="M3 17c3-2 6-2 9 0s6 2 9 0"/><path d="M6 13l6-9 6 9"/></svg></div>
+      <b>Ferry</b><span>渡</span>
+    </div>
+    <nav class="nav" id="nav">
+      <a data-p="overview" class="active"><svg class="i" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>概览</a>
+      <a data-p="proxies"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>节点<span class="count">42</span></a>
+      <a data-p="subs"><svg class="i" viewBox="0 0 24 24"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>订阅<span class="count">3</span></a>
+      <a data-p="rules"><svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>规则<span class="count">12</span></a>
+      <a data-p="conns"><svg class="i" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>连接<span class="count">128</span></a>
+      <a data-p="logs"><svg class="i" viewBox="0 0 24 24"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg>日志</a>
+      <div class="nav-sep"></div>
+      <a data-p="settings"><svg class="i" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>设置</a>
+    </nav>
+    <div class="side-foot">
+      <div class="core-chip"><span class="dot ok"></span><span class="grow">内核运行中</span><span class="num">46 MB</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px">
+        <span class="muted" style="font-size:11.5px">v0.1.0 · core 1.x</span>
+        <button class="icon-btn" id="theme" title="切换主题"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="titlebar">
+      <div class="crumb" id="crumb">Ferry</div>
+      <div class="caption">
+        <button title="最小化"><svg viewBox="0 0 10 10"><path d="M0 5h10"/></svg></button>
+        <button title="最大化"><svg viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" rx="1"/></svg></button>
+        <button class="close" title="关闭到托盘"><svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10"/></svg></button>
+      </div>
+    </div>
+    <div class="content">
+
+<!-- ================= OVERVIEW ================= -->
+<section class="page show" id="p-overview">
+  <div class="page-head"><h1>概览</h1></div>
+  <div class="ov">
+    <div class="card hero">
+      <div class="hero-top">
+        <button class="power" title="断开"><svg class="i" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg></button>
+        <div>
+          <div class="status-line"><span class="dot ok"></span>已连接</div>
+          <div class="sub">规则模式 · 运行 2 小时 14 分</div>
+        </div>
+        <div class="seg"><button class="on">规则</button><button>全局</button><button>直连</button></div>
+      </div>
+      <div class="cur-node">
+        <span class="cc">HK</span>
+        <div class="meta"><div class="name">香港 IPLC 01</div><div>节点选择 · VLESS Reality · Nebula Cloud</div></div>
+        <span class="lat ok">48 ms</span>
+        <button class="btn sm">切换</button>
+      </div>
+      <div class="toggles">
+        <div class="tile on">
+          <div class="ic"><svg class="i" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20"/><path d="M6 4v4"/><path d="M10 4v4"/></svg></div>
+          <div class="grow"><div class="t">系统代理</div><div class="d mono">127.0.0.1:7890</div></div>
+          <span class="switch on"></span>
+        </div>
+        <div class="tile">
+          <div class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <div class="grow"><div class="t">TUN 模式</div><div class="d">服务就绪 · 切换无需提权</div></div>
+          <span class="switch"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">实时流量<span class="muted right">最近 60 秒</span></div>
+      <div class="rates">
+        <div class="rate down"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg><span class="v num">8.37</span><span class="u">MB/s</span></div>
+        <div class="rate up"><svg class="i" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg><span class="v num">1.24</span><span class="u">MB/s</span></div>
+      </div>
+      <svg class="spark" id="spark" viewBox="0 0 300 96" preserveAspectRatio="none"></svg>
+    </div>
+
+    <div class="stats span2">
+      <div class="card stat"><div class="k">活动连接</div><div class="v num">128</div></div>
+      <div class="card stat"><div class="k">内核内存</div><div class="v num">46.2<small>MB</small></div></div>
+      <div class="card stat"><div class="k">本次上传</div><div class="v num">312<small>MB</small></div></div>
+      <div class="card stat"><div class="k">本次下载</div><div class="v num">4.21<small>GB</small></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">订阅用量<span class="muted right">12 分钟前更新</span></div>
+      <div class="sub-row"><span class="name">Nebula Cloud</span><span class="pill proxy">使用中</span><span class="muted right" style="margin-left:auto;font-size:12px">412.6 / 1024 GB</span></div>
+      <div class="bar"><i style="width:40.3%"></i></div>
+      <div class="kv">
+        <div><span>到期</span>2027-03-01</div>
+        <div><span>节点</span>42 个</div>
+        <div><span>自动更新</span>每 12 小时</div>
+      </div>
+      <div class="sub-row" style="margin:18px 0 10px"><span class="name">Backup Lite</span><span class="pill">备用</span><span class="muted right" style="margin-left:auto;font-size:12px">38.2 / 200 GB · 剩 39 天</span></div>
+      <div class="bar"><i style="width:19.1%;background:var(--text-3)"></i></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">应用流量 Top<span class="muted right">本次会话</span></div>
+      <div class="apps" id="apps"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PROXIES ================= -->
+<section class="page" id="p-proxies">
+  <div class="page-head"><h1>节点</h1><span class="sub">42 个节点 · 3 个订阅</span>
+    <div class="actions">
+      <label class="input"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="搜索节点"></label>
+      <div class="seg"><button class="on">延迟</button><button>名称</button></div>
+      <button class="btn"><svg class="i" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>全部测速</button>
+    </div>
+  </div>
+  <div id="groups"></div>
+</section>
+
+<!-- ================= SUBSCRIPTIONS ================= -->
+<section class="page" id="p-subs">
+  <div class="page-head"><h1>订阅</h1><span class="sub">支持 Clash / sing-box / Base64 / 分享链接 / SIP008</span>
+    <div class="actions"><button class="btn"><svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>全部更新</button></div>
+  </div>
+  <div class="import">
+    <button class="imp"><div class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div><b>订阅链接</b><span>粘贴 URL</span></div></button>
+    <button class="imp"><div class="ic"><svg class="i" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></div><div><b>剪贴板</b><span>链接或配置</span></div></button>
+    <button class="imp"><div class="ic"><svg class="i" viewBox="0 0 24 24"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg></div><div><b>二维码图片</b><span>拖入或选择</span></div></button>
+    <button class="imp"><div class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg></div><div><b>扫描屏幕</b><span>识别屏幕二维码</span></div></button>
+    <button class="imp"><div class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></div><div><b>本地文件</b><span>yaml / json / txt</span></div></button>
+  </div>
+  <div class="subs">
+    <div class="sub-list" id="sublist"></div>
+    <div class="card share">
+      <div class="card-head">分享「Nebula Cloud」<span class="muted right">42 个节点</span></div>
+      <div class="seg fmt"><button class="on">Clash</button><button>sing-box</button><button>Base64</button><button>链接</button></div>
+      <div class="qr" id="qr"></div>
+      <div class="muted" style="font-size:12px;margin-bottom:8px">一键导入到其他客户端</div>
+      <div class="deeplinks">
+        <span class="chip">Clash Verge Rev</span><span class="chip">FlClash</span><span class="chip">Mihomo Party</span>
+        <span class="chip">sing-box</span><span class="chip">Hiddify</span><span class="chip">Shadowrocket</span><span class="chip">v2rayN</span>
+      </div>
+      <div class="lan">
+        <span class="switch on"></span>
+        <div class="grow"><b>局域网分享</b><code>http://192.168.1.23:28461/s/k9Qe…Zt · 剩余 09:41</code></div>
+        <button class="btn sm">复制</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= RULES ================= -->
+<section class="page" id="p-rules">
+  <div class="page-head"><h1>规则</h1><span class="sub">自上而下匹配，首条命中生效</span>
+    <div class="actions">
+      <button class="btn ghost"><svg class="i" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>导入 Clash / Proxifier</button>
+      <button class="btn">场景模板</button>
+      <button class="btn primary"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>新建规则</button>
+    </div>
+  </div>
+  <div class="tabs"><button class="on">路由规则</button><button>规则集</button><button>应用分组</button><button>DNS</button></div>
+  <div class="card" style="padding:4px 6px;overflow:hidden">
+    <table class="tbl" id="rules">
+      <thead><tr><th></th><th></th><th>#</th><th>名称</th><th>应用程序</th><th>目标主机</th><th>端口</th><th>动作</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="card tester">
+    <svg class="i" viewBox="0 0 24 24" style="color:var(--text-3)"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>
+    <b style="font-weight:600">规则测试</b>
+    <label class="input" style="width:150px"><input value="chrome.exe"></label>
+    <label class="input" style="width:190px"><input value="www.youtube.com"></label>
+    <label class="input" style="width:70px"><input value="443"></label>
+    <div class="result">命中 <b>#8 默认规则</b> → <span class="pill proxy">节点选择</span> → 香港 IPLC 01</div>
+  </div>
+</section>
+
+<!-- ================= CONNECTIONS ================= -->
+<section class="page" id="p-conns">
+  <div class="page-head"><h1>连接</h1>
+    <div class="actions">
+      <label class="input"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="过滤应用、主机、规则"></label>
+      <div class="seg"><button class="on">全部</button><button>代理</button><button>直连</button><button>拦截</button></div>
+      <button class="btn">暂停</button><button class="btn">关闭全部</button>
+    </div>
+  </div>
+  <div class="conn-sum"><span><b class="num">128</b> 个活动连接</span><span>↓ <b class="num">8.37 MB/s</b></span><span>↑ <b class="num">1.24 MB/s</b></span><span class="muted" style="margin-left:auto">悬停行 → 「据此创建规则」</span></div>
+  <div class="card" style="padding:4px 6px;overflow:hidden">
+    <table class="tbl" id="conns">
+      <thead><tr><th>应用</th><th>目标</th><th>规则</th><th>出站</th><th style="text-align:right">↓</th><th style="text-align:right">↑</th><th>时长</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= LOGS ================= -->
+<section class="page" id="p-logs">
+  <div class="page-head"><h1>日志</h1>
+    <div class="actions">
+      <label class="input"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="搜索日志"></label>
+      <div class="seg"><button>Debug</button><button class="on">Info</button><button>Warn</button><button>Error</button></div>
+      <button class="btn">暂停</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0"><div class="log" id="log"></div></div>
+</section>
+
+<!-- ================= SETTINGS ================= -->
+<section class="page" id="p-settings">
+  <div class="page-head"><h1>设置</h1></div>
+  <div class="set-wrap">
+    <div class="set-nav"><a class="on">常规</a><a>网络与代理</a><a>TUN 与服务</a><a>DNS</a><a>内核</a><a>备份与恢复</a><a>关于</a></div>
+    <div>
+      <div class="set-sec"><h3>常规</h3><div class="card">
+        <div class="srow"><div class="grow"><div class="t">开机自启</div><div class="d">登录后静默启动到托盘</div></div><span class="switch on"></span></div>
+        <div class="srow"><div class="grow"><div class="t">轻量模式</div><div class="d">关闭窗口时释放界面内存（WebView），仅保留托盘与内核</div></div><span class="switch on"></span></div>
+        <div class="srow"><div class="grow"><div class="t">语言</div></div><span class="select">简体中文 ▾</span></div>
+      </div></div>
+      <div class="set-sec"><h3>TUN 与服务</h3><div class="card">
+        <div class="srow"><div class="grow"><div class="t">特权服务</div><div class="d">一次授权安装后，开关 TUN 不再弹出 UAC</div></div>
+          <div class="svc"><span class="dot ok"></span><span style="font-size:12px">已安装 · 运行中</span><button class="btn sm">修复</button><button class="btn sm ghost">卸载</button></div></div>
+        <div class="srow"><div class="grow"><div class="t">协议栈</div><div class="d">Mixed：TCP 走系统栈，UDP 走 gVisor</div></div><span class="select">Mixed ▾</span></div>
+        <div class="srow"><div class="grow"><div class="t">严格路由</div><div class="d">防止 DNS 泄漏，阻断绕过 TUN 的流量</div></div><span class="switch on"></span></div>
+        <div class="srow"><div class="grow"><div class="t">排除网段</div><div class="d">局域网、组播及自定义网段不进入 TUN</div></div><button class="btn sm">编辑 · 9 条</button></div>
+      </div></div>
+      <div class="set-sec"><h3>网络与代理</h3><div class="card">
+        <div class="srow"><div class="grow"><div class="t">混合端口</div><div class="d">HTTP / SOCKS5 共用</div></div><label class="input" style="min-width:90px;width:90px"><input class="num" value="7890"></label></div>
+        <div class="srow"><div class="grow"><div class="t">允许局域网连接</div><div class="d">监听 0.0.0.0，需配合防火墙规则</div></div><span class="switch"></span></div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+function fit(){const w=$('.window'),b=document.body,cs=getComputedStyle(b);
+  const avail=b.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);w.style.zoom=Math.min(1,avail/1180);
+  if(document.documentElement.classList.contains('standalone'))b.style.minHeight=window.innerHeight+'px';}
+addEventListener('resize',fit);
+const ICON={
+  arrow:'<svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>',
+  chev:'<svg class="i chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
+  zap:'<svg class="i" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>',
+  grip:'<svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>',
+  lock:'<svg class="i" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  more:'<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>',
+  share:'<svg class="i" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>',
+  refresh:'<svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>',
+  plusRule:'<svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+  sun:'<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
+  moon:'<svg class="i" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>'
+};
+const latClass=v=>v==null?'none':v<150?'ok':v<350?'warn':'err';
+const latText=v=>v==null?'超时':v+' ms';
+
+/* nav */
+const TITLES={overview:'概览',proxies:'节点',subs:'订阅',rules:'规则',conns:'连接',logs:'日志',settings:'设置'};
+function show(p){if(!TITLES[p])return;
+  document.querySelectorAll('.nav a').forEach(x=>x.classList.toggle('active',x.dataset.p===p));
+  document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id==='p-'+p));
+  $('#crumb').textContent='Ferry  /  '+TITLES[p];}
+$('#nav').addEventListener('click',e=>{const a=e.target.closest('a[data-p]');if(a)show(a.dataset.p);});
+$('#theme').addEventListener('click',()=>{const r=document.documentElement;const d=r.dataset.theme==='dark';
+  r.dataset.theme=d?'light':'dark';$('#theme').innerHTML=d?ICON.sun:ICON.moon;drawSpark();});
+document.querySelectorAll('.seg').forEach(s=>s.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  s.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}));
+document.querySelectorAll('.switch,.tile').forEach(el=>el.addEventListener('click',()=>{
+  const sw=el.classList.contains('tile')?el.querySelector('.switch'):el;sw.classList.toggle('on');
+  if(el.classList.contains('tile'))el.classList.toggle('on',sw.classList.contains('on'));}));
+
+/* sparkline */
+function series(n,base,amp,f,ph){const out=[];for(let i=0;i<n;i++){out.push(Math.max(.15,base+amp*Math.sin(i/f+ph)+amp*.55*Math.sin(i/2.3+ph*2)+amp*.35*Math.cos(i/1.1)));}return out;}
+const DOWN=series(60,6.2,2.2,4.5,.3),UP=series(60,1.2,.55,3.2,1.7);
+function pathOf(vals,max,w,h,pad){const step=w/(vals.length-1);const pts=vals.map((v,i)=>[i*step,h-pad-(v/max)*(h-pad*2)]);
+  let d='M'+pts[0][0].toFixed(1)+' '+pts[0][1].toFixed(1);
+  for(let i=1;i<pts.length;i++){const p0=pts[i-2]||pts[i-1],p1=pts[i-1],p2=pts[i],p3=pts[i+1]||p2;
+    const c1=[p1[0]+(p2[0]-p0[0])/6,p1[1]+(p2[1]-p0[1])/6],c2=[p2[0]-(p3[0]-p1[0])/6,p2[1]-(p3[1]-p1[1])/6];
+    d+=` C${c1[0].toFixed(1)} ${c1[1].toFixed(1)},${c2[0].toFixed(1)} ${c2[1].toFixed(1)},${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;}
+  return d;}
+function drawSpark(){const W=300,H=96,max=10;const down=pathOf(DOWN,max,W,H,6),up=pathOf(UP,max,W,H,6);
+  const css=getComputedStyle(document.documentElement);const acc=css.getPropertyValue('--accent').trim();
+  $('#spark').innerHTML=`<defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${acc}" stop-opacity=".28"/><stop offset="1" stop-color="${acc}" stop-opacity="0"/></linearGradient></defs>
+  ${[24,48,72].map(y=>`<line x1="0" x2="300" y1="${y}" y2="${y}" stroke="var(--border)" stroke-width="1" vector-effect="non-scaling-stroke" stroke-dasharray="2 4"/>`).join('')}
+  <path d="${down} L300 96 L0 96 Z" fill="url(#g)"/>
+  <path d="${down}" fill="none" stroke="${acc}" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
+  <path d="${up}" fill="none" stroke="#a68bff" stroke-width="1.6" vector-effect="non-scaling-stroke" opacity=".9"/>`;}
+drawSpark();
+
+/* top apps */
+const APPS=[['chrome.exe','#4f86f7','C',1840,'proxy','节点选择'],['steam.exe','#2a475e','S',3420,'direct','直连'],
+  ['Telegram.exe','#2aa3e0','T',214,'proxy','香港'],['Code.exe','#2f80d1','V',88,'proxy','节点选择'],['WeChat.exe','#1aad19','W',61,'direct','直连']];
+const maxA=Math.max(...APPS.map(a=>a[3]));
+$('#apps').innerHTML=APPS.map(([n,c,l,mb,k,t])=>`<div class="app-row"><div class="av" style="background:${c}">${l}</div>
+  <div class="nm"><b>${n}</b><div class="bar"><i style="width:${(mb/maxA*100).toFixed(1)}%;${k==='direct'?'background:var(--ok)':''}"></i></div></div>
+  <span class="pill ${k}">${t}</span><span class="amt num">${mb>=1024?(mb/1024).toFixed(2)+' GB':mb+' MB'}</span></div>`).join('');
+
+/* proxies */
+const NODES=[['HK','香港 IPLC 01','VLESS·Reality',48],['HK','香港 IPLC 02','VLESS·Reality',52],['HK','香港 03','Hysteria2',61],['TW','台湾 01','TUIC v5',64],
+  ['JP','日本 东京 01','Hysteria2',72],['KR','韩国 首尔 01','Trojan',79],['JP','日本 大阪 02','AnyTLS',88],['SG','新加坡 01','SS-2022',95],
+  ['US','美国 洛杉矶 01','VLESS·Reality',168],['US','美国 圣何塞 02','Hysteria2',182],['GB','英国 伦敦 01','Trojan',236],['DE','德国 法兰克福','SS-2022',null]];
+const node=(n,i,sel)=>`<button class="node ${sel?'sel':''}"><div class="top"><span class="cc">${n[0]}</span><span class="nn">${n[1]}</span></div>
+  <div class="bot"><span class="proto">${n[2]}</span><span class="lat ${latClass(n[3])}">${latText(n[3])}</span></div></button>`;
+const GROUPS=[{n:'节点选择',t:'手动',cur:'香港 IPLC 01',open:true,list:NODES},
+  {n:'自动选择',t:'自动 · 最低延迟',cur:'香港 IPLC 01 · 48 ms',list:NODES},
+  {n:'香港',t:'自动',cur:'香港 IPLC 01 · 48 ms',list:NODES.slice(0,3)},
+  {n:'日本',t:'自动',cur:'日本 东京 01 · 72 ms',list:NODES.filter(x=>x[0]==='JP')},
+  {n:'流媒体',t:'手动',cur:'新加坡 01',list:NODES.slice(4,10)}];
+$('#groups').innerHTML=GROUPS.map(g=>`<div class="card group ${g.open?'':'closed'}">
+  <div class="group-h">${ICON.chev}<span class="gname">${g.n}</span><span class="pill">${g.t}</span><span class="gcur">${g.cur}</span>
+  <div class="right"><span class="muted" style="font-size:12px">${g.list.length} 个</span><button class="btn sm ghost">${ICON.zap}测速</button></div></div>
+  <div class="nodes">${g.list.map((n,i)=>node(n,i,g.open&&i===0)).join('')}</div></div>`).join('');
+document.querySelectorAll('.group-h').forEach(h=>h.addEventListener('click',e=>{if(e.target.closest('button'))return;h.parentElement.classList.toggle('closed');}));
+document.querySelectorAll('.nodes').forEach(g=>g.addEventListener('click',e=>{const b=e.target.closest('.node');if(!b)return;g.querySelectorAll('.node').forEach(x=>x.classList.toggle('sel',x===b));}));
+
+/* subscriptions */
+const SUBS=[{n:'Nebula Cloud',u:'https://sub.nebula.example/api/v1/client/••••••',used:412.6,total:1024,exp:'2027-03-01',nodes:42,upd:'12 分钟前',fmt:'Clash',act:true},
+  {n:'Backup Lite',u:'https://lite.example.net/link/••••••?flag=meta',used:38.2,total:200,exp:'2026-12-18',nodes:17,upd:'3 小时前',fmt:'Base64'},
+  {n:'自建节点',u:'手动添加 · 3 个分享链接',used:null,total:null,exp:'—',nodes:3,upd:'—',fmt:'本地'}];
+$('#sublist').innerHTML=SUBS.map(s=>`<div class="card sub-card ${s.act?'active':''}">
+  <div class="top"><div><div class="title">${s.n} <span class="pill" style="margin-left:6px">${s.fmt}</span></div><div class="url mono">${s.u}</div></div>
+  <div class="acts"><button class="icon-btn" title="更新">${ICON.refresh}</button><button class="icon-btn" title="分享">${ICON.share}</button><button class="icon-btn">${ICON.more}</button></div></div>
+  ${s.total?`<div class="usage"><span>已用 <b class="num">${s.used} GB</b> / ${s.total} GB</span><span>到期 ${s.exp}</span></div><div class="bar"><i style="width:${(s.used/s.total*100).toFixed(1)}%;${s.used/s.total>.8?'background:var(--warn)':''}"></i></div>`:''}
+  <div class="kv"><div><span>节点</span>${s.nodes} 个</div><div><span>上次更新</span>${s.upd}</div><div><span>自动更新</span>${s.total?'每 12 小时':'—'}</div></div></div>`).join('');
+
+/* fake QR (visual only) */
+(function(){const N=29,s=148/N;let seed=7;const rnd=()=>((seed=(seed*16807)%2147483647)/2147483647);
+  const finder=(x,y)=>`<rect x="${x*s}" y="${y*s}" width="${7*s}" height="${7*s}" fill="#111"/><rect x="${(x+1)*s}" y="${(y+1)*s}" width="${5*s}" height="${5*s}" fill="#fff"/><rect x="${(x+2)*s}" y="${(y+2)*s}" width="${3*s}" height="${3*s}" fill="#111"/>`;
+  const inF=(x,y)=>(x<8&&y<8)||(x>N-9&&y<8)||(x<8&&y>N-9);let r='';
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){if(inF(x,y))continue;if(rnd()>.52)r+=`<rect x="${(x*s).toFixed(2)}" y="${(y*s).toFixed(2)}" width="${s.toFixed(2)}" height="${s.toFixed(2)}" fill="#111"/>`;}
+  $('#qr').innerHTML=`<svg width="148" height="148" viewBox="0 0 148 148" shape-rendering="crispEdges">${r}${finder(0,0)}${finder(N-7,0)}${finder(0,N-7)}</svg>`;})();
+
+/* rules */
+const RULES=[
+  {on:1,n:'局域网直连',apps:[],t:['geoip:private','*.local','*.lan'],p:'',a:['direct','直连']},
+  {on:1,n:'广告拦截',apps:[],t:['geosite:category-ads-all'],p:'',a:['block','拦截']},
+  {on:1,n:'游戏平台直连',apps:['steam.exe','*\\Riot Games\\*.exe','EpicGamesLauncher.exe'],t:[],p:'',a:['direct','直连']},
+  {on:1,n:'开发工具',apps:['Code.exe','git.exe','node.exe'],t:['github.com','*.npmjs.org','*.golang.org'],p:'443',a:['proxy','节点选择']},
+  {on:1,n:'Telegram',apps:['Telegram.exe'],t:['geoip:telegram'],p:'',a:['proxy','香港']},
+  {on:0,n:'流媒体',apps:[],t:['geosite:netflix','geosite:disney'],p:'',a:['proxy','流媒体']},
+  {on:1,n:'国内直连',apps:[],t:['geosite:cn','geoip:cn'],p:'',a:['direct','直连']},
+];
+const chip=x=>`<span class="chip ${/^geo(site|ip):/.test(x)?'set':''}">${x}</span>`;
+const chips=(arr,anyText)=>arr.length?`<div class="chips">${arr.slice(0,2).map(chip).join('')}${arr.length>2?`<span class="chip" title="${arr.slice(2).join(', ')}">+${arr.length-2}</span>`:''}</div>`:`<span class="muted">${anyText}</span>`;
+$('#rules tbody').innerHTML=RULES.map((r,i)=>`<tr class="${r.on?'':'off'}"><td class="grip">${ICON.grip}</td><td style="width:44px"><span class="switch ${r.on?'on':''}"></span></td>
+  <td class="idx num">${i+1}</td><td><b style="font-weight:500">${r.n}</b></td><td>${chips(r.apps,'任意')}</td><td>${chips(r.t,'任意')}</td>
+  <td>${r.p?`<span class="mono">${r.p}</span>`:'<span class="muted">任意</span>'}</td><td><span class="pill ${r.a[0]}">${r.a[1]}</span></td></tr>`).join('')
+  +`<tr class="pinned"><td class="grip" style="cursor:default">${ICON.lock}</td><td></td><td class="idx num">8</td><td><b style="font-weight:500">默认规则</b></td><td><span class="muted">任意</span></td><td><span class="muted">任意</span></td><td><span class="muted">任意</span></td><td><span class="pill proxy">节点选择</span></td></tr>`;
+document.querySelectorAll('#rules .switch').forEach(sw=>sw.addEventListener('click',()=>{sw.classList.toggle('on');sw.closest('tr').classList.toggle('off',!sw.classList.contains('on'));}));
+
+/* connections */
+const CONNS=[['chrome.exe','#4f86f7','C','www.youtube.com:443','默认规则','proxy','香港 IPLC 01','5.21 MB/s','86 KB/s','3m 12s'],
+  ['steam.exe','#2a475e','S','cdn.steamstatic.com:443','游戏平台直连','direct','DIRECT','2.80 MB/s','12 KB/s','41s'],
+  ['Telegram.exe','#2aa3e0','T','149.154.167.51:443','Telegram','proxy','香港 03','24 KB/s','8 KB/s','52m'],
+  ['Code.exe','#2f80d1','V','github.com:443','开发工具','proxy','香港 IPLC 01','112 KB/s','18 KB/s','6s'],
+  ['WeChat.exe','#1aad19','W','szextshort.weixin.qq.com:443','国内直连','direct','DIRECT','3 KB/s','1 KB/s','18m'],
+  ['msedge.exe','#0c7cd5','E','ads.example-tracker.com:443','广告拦截','block','REJECT','—','—','0s'],
+  ['svchost.exe','#6b7280','S','settings-win.data.microsoft.com:443','默认规则','proxy','香港 IPLC 01','0 B/s','0 B/s','1m 3s'],
+  ['node.exe','#3c873a','N','registry.npmjs.org:443','开发工具','proxy','香港 IPLC 01','820 KB/s','4 KB/s','2s'],
+  ['Spotify.exe','#1db954','S','audio-ak.spotifycdn.com:443','默认规则','proxy','日本 东京 01','196 KB/s','3 KB/s','7m 44s']];
+$('#conns tbody').innerHTML=CONNS.map(c=>`<tr><td><div class="app-cell"><div class="av" style="background:${c[1]}">${c[2]}</div><b>${c[0]}</b></div></td>
+  <td class="host">${c[3]}</td><td>${c[4]}</td><td><div class="chain"><span class="pill ${c[5]}">${c[5]==='proxy'?'代理':c[5]==='direct'?'直连':'拦截'}</span>${c[5]==='proxy'?ICON.arrow+c[6]:''}</div></td>
+  <td class="num" style="text-align:right">${c[7]}</td><td class="num" style="text-align:right;color:var(--text-2)">${c[8]}</td><td class="num muted">${c[9]}</td>
+  <td style="width:1%;padding-left:0"><button class="btn sm row-act">${ICON.plusRule}创建规则</button></td></tr>`).join('');
+
+/* logs */
+const LOGS=[['21:04:12.338','info','inbound/mixed[mixed-in]: inbound connection from 127.0.0.1:52144'],
+  ['21:04:12.339','info','router: match[3] process_name=[chrome.exe] => route(节点选择)'],
+  ['21:04:12.402','info','outbound/vless[香港 IPLC 01]: outbound connection to www.youtube.com:443'],
+  ['21:04:13.017','debug','dns: exchanged www.youtube.com A 198.18.0.42 (fakeip)'],
+  ['21:04:14.553','warn','outbound/hysteria2[美国 圣何塞 02]: handshake timeout, retrying'],
+  ['21:04:15.100','info','router: match[6] rule_set=[geosite-cn] => route(direct)'],
+  ['21:04:16.880','error','outbound/ss[德国 法兰克福]: dial tcp 203.0.113.9:8388: i/o timeout'],
+  ['21:04:17.214','info','urltest[自动选择]: best outbound 香港 IPLC 01 (48ms)']];
+fit();
+if(location.hash.length>1)show(location.hash.slice(1));
+$('#log').innerHTML=LOGS.map(l=>`<div><span class="muted">${l[0]}</span><span class="lv ${l[1]}">${l[1].toUpperCase()}</span><span>${l[2]}</span></div>`).join('');
+</script>
+</body>
+</html>

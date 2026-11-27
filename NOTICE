@@ -1,0 +1,9 @@
+Ferry is licensed under GPL-3.0-or-later.
+
+Ferry embeds sing-box, copyright (C) 2022 nekohasekai and contributors,
+licensed under GPL-3.0-or-later. See https://github.com/SagerNet/sing-box.
+Ferry is an independent project and is not affiliated with sing-box.
+
+Other dependency notices and licenses remain in the respective upstream
+modules identified by go.mod/go.sum and frontend/pnpm-lock.yaml. Distribution
+packaging must include applicable notices and corresponding source.

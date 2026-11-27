@@ -1,0 +1,69 @@
+/* 设计 token，取自 docs/design/mockup.html。深浅色都只改这里。 */
+:root {
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC',
+    'Noto Sans SC', 'Noto Sans CJK SC', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', ui-monospace, monospace;
+  --r-sm: 6px;
+  --r: 8px;
+  --r-lg: 12px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur: 0.15s;
+}
+
+[data-theme='dark'] {
+  --canvas: #08090b;
+  --sidebar: #0e1013;
+  --bg: #121418;
+  --surface: #171a1f;
+  --surface-2: #1d2026;
+  --surface-3: #252930;
+  --border: #24282f;
+  --border-strong: #313641;
+  --text: #e8eaef;
+  --text-2: #a1a7b3;
+  --text-3: #6a717e;
+  --accent: #6f8dff;
+  --accent-strong: #8ea6ff;
+  --accent-soft: rgba(111, 141, 255, 0.14);
+  --accent-ring: rgba(111, 141, 255, 0.45);
+  --ok: #3fcf8e;
+  --ok-soft: rgba(63, 207, 142, 0.13);
+  --warn: #f0b54a;
+  --warn-soft: rgba(240, 181, 74, 0.13);
+  --err: #f06b6b;
+  --err-soft: rgba(240, 107, 107, 0.13);
+  --muted-soft: rgba(255, 255, 255, 0.05);
+  --chart-up: #a68bff;
+  --chart-down: var(--accent);
+  --shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --mica: linear-gradient(160deg, #141826 0%, #0f1115 45%, #0e1013 100%);
+}
+
+[data-theme='light'] {
+  --canvas: #dfe3ea;
+  --sidebar: #f2f4f7;
+  --bg: #f9fafb;
+  --surface: #fff;
+  --surface-2: #f3f4f7;
+  --surface-3: #eaecf0;
+  --border: #e3e6eb;
+  --border-strong: #d3d8df;
+  --text: #14161b;
+  --text-2: #555d6b;
+  --text-3: #8a919e;
+  --accent: #3c63ef;
+  --accent-strong: #2c51d8;
+  --accent-soft: rgba(60, 99, 239, 0.09);
+  --accent-ring: rgba(60, 99, 239, 0.35);
+  --ok: #139e62;
+  --ok-soft: rgba(19, 158, 98, 0.1);
+  --warn: #c4850c;
+  --warn-soft: rgba(196, 133, 12, 0.11);
+  --err: #de4548;
+  --err-soft: rgba(222, 69, 72, 0.09);
+  --muted-soft: rgba(0, 0, 0, 0.035);
+  --chart-up: #7c5cf0;
+  --chart-down: var(--accent);
+  --shadow: 0 24px 64px rgba(30, 40, 60, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --mica: linear-gradient(160deg, #eef1fb 0%, #f2f4f7 45%, #f2f4f7 100%);
+}

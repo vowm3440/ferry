@@ -1,0 +1,42 @@
+{
+  "nodes": [
+    {
+      "id": "my-socks",
+      "tag": "我的 SOCKS 节点",
+      "outbound": {
+        "type": "socks",
+        "server": "127.0.0.1",
+        "server_port": 1080,
+        "version": "5"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "proxy",
+      "name": "代理",
+      "type": "select",
+      "members": ["my-socks"]
+    }
+  ],
+  "rules": [],
+  "dns": {
+    "mode": "fakeip",
+    "remote": "https://1.1.1.1/dns-query",
+    "direct": "https://223.5.5.5/dns-query",
+    "strategy": "prefer_ipv4"
+  },
+  "inbound": {
+    "mixedPort": 7890,
+    "allowLan": false,
+    "tun": {
+      "enabled": false,
+      "stack": "mixed",
+      "strictRoute": true,
+      "excludes": [],
+      "mtu": 9000
+    }
+  },
+  "mode": "rule",
+  "log": { "level": "info" }
+}
