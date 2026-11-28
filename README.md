@@ -1,3 +1,4 @@
+纯ai产物，试验产品，仅自用
 # Ferry（渡）
 
 Windows 专用轻量代理客户端，采用 Go 1.26 + Wails 3.1 + Svelte 5 架构，通过独立内核宿主进程内嵌 `sing-box` 1.14.4。本项目按 `GPL-3.0-or-later` 开源，与 `sing-box` 官方无隶属关系。
