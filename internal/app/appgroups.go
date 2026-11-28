@@ -58,6 +58,28 @@ func (a *AppGroups) Save(ctx context.Context, group spec.AppGroup) (spec.AppGrou
 	return group, nil
 }
 
+// AddApp appends an executable name or path to an existing app group idempotently.
+func (a *AppGroups) AddApp(ctx context.Context, groupID, appName string) (spec.AppGroup, error) {
+	var updated spec.AppGroup
+	err := a.mutate(ctx, func(config *spec.RunSpec) error {
+		idx := slices.IndexFunc(config.AppGroups, func(group spec.AppGroup) bool { return group.ID == groupID })
+		if idx < 0 {
+			return errors.New("应用分组不存在")
+		}
+		group := cloneAppGroup(config.AppGroups[idx])
+		if !slices.Contains(group.Apps, appName) {
+			group.Apps = append(group.Apps, appName)
+		}
+		config.AppGroups[idx] = group
+		updated = cloneAppGroup(group)
+		return nil
+	})
+	if err != nil {
+		return spec.AppGroup{}, err
+	}
+	return updated, nil
+}
+
 func (a *AppGroups) Remove(ctx context.Context, id string) error {
 	return a.mutate(ctx, func(config *spec.RunSpec) error {
 		index := slices.IndexFunc(config.AppGroups, func(group spec.AppGroup) bool { return group.ID == id })

@@ -68,5 +68,11 @@ func (s RunSpec) Validate() error {
 	if err := s.validateAppGroups(); err != nil {
 		return err
 	}
+	if err := s.validateRuleSets(); err != nil {
+		return err
+	}
+	if err := s.validateDNSRouting(); err != nil {
+		return err
+	}
 	return s.validateRules()
 }

@@ -22,17 +22,18 @@ func (h *Host) start(ctx context.Context, s spec.RunSpec) error {
 	if s.Inbound.Tun.Enabled && !h.serviceMode {
 		return h.fail(errors.New("用户态内核不支持 TUN，请安装并启用系统服务"))
 	}
-	options, err := compile.Compile(s)
+	effective := h.effectiveSpec(s)
+	options, err := compile.Compile(effective)
 	if err != nil {
 		return h.fail(err)
 	}
-	if err := h.loadRuleSets(s, &options); err != nil {
+	if err := h.loadRuleSets(effective, &options); err != nil {
 		return h.fail(err)
 	}
 	if !hasClashAPI {
 		return h.fail(errors.New("当前内核构建未启用 Clash API"))
 	}
-	running, err := newInstance(options, s, h.logs)
+	running, err := newInstance(options, effective, h.logs)
 	if err != nil {
 		if s.Inbound.Tun.Enabled {
 			return h.fail(errors.New("TUN 启动失败，请检查网络适配器冲突或系统服务权限，可退回系统代理模式"))
@@ -48,6 +49,7 @@ func (h *Host) start(ctx context.Context, s spec.RunSpec) error {
 	h.mu.Lock()
 	h.current, h.sampledAt = running, running.started
 	h.rateUpload, h.rateDownload = 0, 0
+	h.totalUpload, h.totalDownload = 0, 0
 	h.traffic = zeroTraffic()
 	h.state.Status, h.state.Mode, h.state.Error = "running", s.Mode, ""
 	h.mu.Unlock()
@@ -77,6 +79,7 @@ func (h *Host) detach() {
 	h.current = nil
 	h.sampledAt = time.Time{}
 	h.rateUpload, h.rateDownload = 0, 0
+	h.totalUpload, h.totalDownload = 0, 0
 	h.state.UptimeMs, h.state.MemoryBytes = 0, 0
 	h.traffic = zeroTraffic()
 }

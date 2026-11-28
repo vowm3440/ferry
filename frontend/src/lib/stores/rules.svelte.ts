@@ -14,8 +14,11 @@ import {
   EVENT_RULES_APPLIED,
   messageOfError,
   type AppGroup,
+  type ApplyPresetResult,
   type Backend,
+  type CustomRuleSet,
   type ImportPreview,
+  type LazyPresetOptions,
   type Rule,
   type RuleSetInfo,
   type RuleTestResult,
@@ -27,7 +30,7 @@ import { moveRule } from '../rules-view';
 import { caps } from './caps.svelte';
 
 /** 进行中的改动；空串表示空闲。 */
-export type RulesPending = '' | 'save' | 'remove' | 'toggle' | 'move' | 'import' | 'group' | 'sets';
+export type RulesPending = '' | 'save' | 'remove' | 'toggle' | 'move' | 'import' | 'group' | 'sets' | 'preset';
 
 /** 带返回值的读取结果。 */
 export type Outcome<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly message: string };
@@ -224,13 +227,78 @@ class RulesStore {
     });
   }
 
+  /** 将一个进程名或路径一键加入已有的应用分组。 */
+  addAppToGroup(groupId: string, app: string): Promise<ActionResult> {
+    return this.#mutate('group', groupId, async (backend) => {
+      await backend.appGroupsAddApp(groupId, app);
+    });
+  }
+
   removeGroup(id: string): Promise<ActionResult> {
     return this.#mutate('group', id, (backend) => backend.appGroupsRemove(id));
   }
 
-  /** 下载并更新规则集（1 到 4 个）。更新后的内容在重新应用规则或重启内核后生效。 */
+  /** 下载并更新规则集。更新后的内容在重新应用规则或重启内核后生效。 */
   updateSets(ids: readonly string[]): Promise<ActionResult> {
     return this.#mutate('sets', '', (backend) => backend.ruleSetsUpdate([...ids]));
+  }
+
+  /** 新增或编辑一个自定义远程 SRS 规则集。 */
+  saveRuleSet(rs: CustomRuleSet): Promise<ActionResult> {
+    return this.#mutate('sets', rs.id, async (backend) => {
+      await backend.ruleSetsSave(rs);
+    });
+  }
+
+  /** 删除一个自定义远程 SRS 规则集。 */
+  removeRuleSet(id: string): Promise<ActionResult> {
+    return this.#mutate('sets', id, (backend) => backend.ruleSetsRemove(id));
+  }
+
+  /** 读取社区常用 SRS 规则集预设列表。 */
+  async ruleSetPresets(): Promise<Outcome<CustomRuleSet[]>> {
+    const backend = this.#backend;
+    if (backend === null) return { ok: false, message: notConnected() };
+    try {
+      return { ok: true, value: await backend.ruleSetsPresets() };
+    } catch (error: unknown) {
+      return { ok: false, message: messageOfError(error) };
+    }
+  }
+
+  /** 读取懒人分流默认预设选项。 */
+  async defaultLazyPreset(): Promise<Outcome<LazyPresetOptions>> {
+    const backend = this.#backend;
+    if (backend === null) return { ok: false, message: notConnected() };
+    try {
+      return { ok: true, value: await backend.rulesDefaultLazyPreset() };
+    } catch (error: unknown) {
+      return { ok: false, message: messageOfError(error) };
+    }
+  }
+
+  /** 一键应用懒人分流预设。 */
+  async applyLazyPreset(opts: LazyPresetOptions): Promise<Outcome<ApplyPresetResult>> {
+    const backend = this.#backend;
+    if (backend === null) return { ok: false, message: notConnected() };
+    if (this.pending !== '') return { ok: false, message: busyMsg() };
+    this.pending = 'preset';
+    this.pendingId = '';
+    try {
+      const value = await backend.rulesApplyLazyPreset(opts);
+      if (this.#backend === backend) {
+        await this.refresh();
+        if (caps.has(CAP_RULE_SETS)) await this.loadSets(true);
+      }
+      return { ok: true, value };
+    } catch (error: unknown) {
+      return { ok: false, message: messageOfError(error) };
+    } finally {
+      if (this.#backend === backend) {
+        this.pending = '';
+        this.pendingId = '';
+      }
+    }
   }
 }
 

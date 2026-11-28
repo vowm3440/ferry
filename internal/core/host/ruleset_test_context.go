@@ -19,6 +19,11 @@ type ruleSetContextKey struct{}
 type testRuleSets map[string][]adapter.HeadlessRule
 
 func (h *Host) ruleTestContext(ctx context.Context, s spec.RunSpec) (context.Context, error) {
+	if h.ruleSets != nil && len(s.RuleSets) > 0 {
+		if err := h.ruleSets.SyncCustom(s.RuleSets); err != nil {
+			return nil, err
+		}
+	}
 	sets := testRuleSets{}
 	for _, id := range s.ReferencedRuleSets() {
 		if h.ruleSets == nil {

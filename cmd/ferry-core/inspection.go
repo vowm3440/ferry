@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"ferry/internal/spec"
 	"ferry/internal/telemetry"
 )
 
@@ -30,4 +31,10 @@ func (a *adapter) RuleSetList(ctx context.Context) ([]telemetry.RuleSetInfo, err
 }
 func (a *adapter) RuleSetUpdate(ctx context.Context, id string) error {
 	return a.core.RuleSetUpdate(ctx, id)
+}
+func (a *adapter) RuleSetSync(ctx context.Context, sets []spec.RuleSet) error {
+	return a.core.RuleSetSync(ctx, sets)
+}
+func (a *adapter) RuleSetDelete(ctx context.Context, id string) error {
+	return a.core.RuleSetDelete(ctx, id)
 }

@@ -5,14 +5,17 @@
  * 这里放行而后端拒绝的情况不算问题，反过来（这里拒绝、后端其实接受）才是缺陷，所以判断只严不到后端之外。
  */
 
-import type { AppGroup } from './api/types-rules';
-import { APP_GROUP_PREFIX } from './api/types-rules';
+import type { AppGroup, RuleSetInfo } from './api/types-rules';
+import { APP_GROUP_PREFIX, CUSTOM_RULE_SET_PREFIX } from './api/types-rules';
 import { t } from './i18n/locale';
 
 /** 规则总数、单个字段的条件数、应用分组数的上限（internal/spec/types.go）。 */
 export const MAX_RULES = 2048;
 export const MAX_RULE_ITEMS = 256;
 export const MAX_APP_GROUPS = 128;
+export const MAX_CUSTOM_RULE_SETS = 64;
+export const MAX_DNS_SERVERS = 32;
+export const MAX_DNS_RULES = 128;
 
 export interface RuleSetRef {
   /** 写在「目标主机」里的引用。 */
@@ -171,14 +174,52 @@ export function isValidRuleHost(host: string): boolean {
   return isValidDomain(host);
 }
 
-export function isRuleSetRef(host: string): boolean {
-  return RULE_SET_REFS.some((item) => item.ref === host);
+export function isRuleSetRef(host: string, customIds?: ReadonlySet<string> | null): boolean {
+  if (RULE_SET_REFS.some((item) => item.ref === host)) return true;
+  if (!host.startsWith(CUSTOM_RULE_SET_PREFIX)) return false;
+  const id = host.slice(CUSTOM_RULE_SET_PREFIX.length);
+  if (!isValidId(id)) return false;
+  return customIds === undefined || customIds === null || customIds.has(id);
 }
 
-/** 写成了规则集的样子（geoip: / geosite: 开头，不分大小写）。 */
+/** 写成了规则集的样子（geoip: / geosite: / ruleset: 开头，不分大小写）。 */
 export function looksLikeRuleSet(host: string): boolean {
   const lower = host.toLowerCase();
-  return lower.startsWith('geoip:') || lower.startsWith('geosite:');
+  return lower.startsWith('geoip:') || lower.startsWith('geosite:') || lower.startsWith(CUSTOM_RULE_SET_PREFIX);
+}
+
+/** 自定义远程 SRS 地址校验：仅允许 HTTPS .srs 链接，不含用户信息或片段。 */
+export function isValidRuleSetUrl(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (trimmed === '' || trimmed !== raw || byteLength(raw) > 2048 || CONTROL.test(raw)) return false;
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && u.hostname !== '' && u.username === '' && u.password === '' && u.hash === '' && u.pathname.toLowerCase().endsWith('.srs');
+  } catch {
+    return false;
+  }
+}
+
+/** DNS 服务器地址校验（与 Go spec.validDNS 对齐：IP 字面量 + https/tls/tcp/udp）。 */
+export function isValidDnsServerUrl(raw: string): boolean {
+  if (raw === '' || byteLength(raw) > 2048 || CONTROL.test(raw)) return false;
+  try {
+    const u = new URL(raw);
+    if (!['https:', 'tls:', 'tcp:', 'udp:'].includes(u.protocol)) return false;
+    if (u.username !== '' || u.password !== '' || u.hash !== '' || u.search !== '') return false;
+    const host = u.hostname.startsWith('[') && u.hostname.endsWith(']') ? u.hostname.slice(1, -1) : u.hostname;
+    if (!isIpLiteral(host)) return false;
+    if (u.protocol !== 'https:' && u.pathname !== '' && u.pathname !== '/') return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function ruleSetRefFromInfo(item: RuleSetInfo): string {
+  const builtin = RULE_SET_REFS.find((entry) => entry.id === item.id);
+  if (builtin !== undefined) return builtin.ref;
+  return CUSTOM_RULE_SET_PREFIX + item.id;
 }
 
 export function isValidRulePort(value: string): boolean {
@@ -207,10 +248,19 @@ export function appProblem(app: string, groups: readonly AppGroup[] | null): str
   return group.apps.length === 0 ? t('引用的应用分组为空或无效', 'Referenced app group is empty or invalid') : '';
 }
 
-export function hostProblem(host: string): string {
-  if (isRuleSetRef(host)) return '';
+export function hostProblem(host: string, customIds?: ReadonlySet<string> | null): string {
+  if (isRuleSetRef(host, customIds)) return '';
   if (looksLikeRuleSet(host)) return t('规则集不在支持的目录内，请选择已列出的规则集', 'Unsupported rule set; choose from the listed catalog');
   return isValidRuleHost(host) ? '' : t('规则主机条件无效或语法不受支持', 'Invalid or unsupported host condition');
+}
+
+export function dnsDomainProblem(item: string, customIds?: ReadonlySet<string> | null): string {
+  if (!validText(item, 253)) return t('分流 DNS 域名条件无效', 'Invalid split DNS domain');
+  const lower = item.toLowerCase();
+  if (lower.startsWith('geoip:')) return t('分流 DNS 规则仅支持域名或域名规则集，不支持 geoip', 'Split DNS rules only support domains or domain rule sets (not geoip)');
+  if (isRuleSetRef(item, customIds)) return '';
+  if (looksLikeRuleSet(item)) return t('分流 DNS 引用的规则集不存在', 'Referenced rule set does not exist');
+  return isValidDomain(item) ? '' : t('分流 DNS 域名格式无效', 'Invalid split DNS domain format');
 }
 
 export function portProblem(port: string): string {

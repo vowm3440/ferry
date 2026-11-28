@@ -56,3 +56,23 @@
   5. 升级 `scripts/build.ps1`、`scripts/test.ps1`、`scripts/package.ps1`，新增 `scripts/verify-machine.ps1` 与 `.github/workflows/{ci,release}.yml`。
 - **预防措施（Prevention）**：
   通过 `scripts/test.ps1`、`scripts/verify-machine.ps1` 与 GitHub Actions CI 强制门禁，确保每次改动同时通过前端单测/无头冒烟、Go 双标签测试、真实 `ferry-core.exe` 子进程压力恢复测试与打包校验。
+
+## 2026-11-28 — TUN 模式启用分流 DNS 与懒人规则集后，国内直连网站报 `ERR_CONNECTION_RESET`（无法访问此网站）
+
+- **症状（Symptom）**：
+  在 TUN 模式下应用懒人分流预设（开启 `dns-preset-cn` 国内域名直连 DoH + `geosite:cn` / `geoip:cn` 直连）后，浏览器（Chrome / Edge）访问百度、B 站、知乎、淘宝等国内网站时在约 200ms 内报错「无法访问此网站（`net::ERR_CONNECTION_RESET`）」，而海外代理网站或强制走 IPv4 / Mixed 代理时访问正常。
+- **复现步骤（Reproduction）**：
+  1. 在仅分配 IPv4 的网络环境（如 WLAN 仅含 `192.168.137.194/24`、无公网 IPv6）启用 TUN 模式并应用懒人分流预设。
+  2. 使用 Chrome 访问 `https://www.baidu.com` 或 `https://www.bilibili.com`，浏览器立即返回 `net::ERR_CONNECTION_RESET`；强制 `--host-resolver-rules` 走 IPv4 或走 `127.0.0.1:7890` Mixed 代理则立即返回 `HTTP 200`。
+- **根因（Root Cause）**：
+  1. `internal/core/compile/compile.go` 中 `compileTunInbound` 无论宿主机是否具备 IPv6 连通性，均无条件为 `FerryTun` 绑定了 IPv6 地址 `fdfe:dcba:9876::1/126` 并写入默认路由 `::/0`。
+  2. 启用分流 DNS（`geosite:cn` → `__dns_direct`）后，国内域名的 `A` / `AAAA` / `HTTPS` 查询不再走 FakeIP，而是直接经 `223.5.5.5` 返回真实 IPv4 与真实 IPv6（如 `240e:...`）；而 `dns.strategy = "prefer_ipv4"` 仅影响内核内部 `Lookup`，不会在 `Exchange` 阶段过滤客户端的 `AAAA` 或 `HTTPS ipv6hint`。
+  3. Windows / Chrome 看到 `FerryTun` 存在 `::/0` 路由且收到了真实 `AAAA`，优先向 `[240e:...]:443` 发起连接；`sing-box` 收到字面 IPv6 目标后命中 `geosite:cn` / `geoip:cn` 走 `__direct`，但物理网卡无 IPv6 路由，内核立即回发 TCP RST，导致浏览器直接中断并报「无法访问此网站」。
+- **解决方案（Solution）**：
+  1. `internal/core/compile/compile.go` & `dns.go`：当 `DNS.Strategy == "ipv4_only"` 时，TUN 仅配置 IPv4 地址（`172.19.0.1/30`，不再写入虚假 `::/0` 路由），FakeIP 仅配置 `inet4_range` 与 `query_type: ["A"]`，并借助 `sing-box` 的 `ipv4_only` 策略自动返回空 `AAAA` 并剥离 `HTTPS` 记录中的 `ipv6hint`。
+  2. `internal/core/host/ipv6.go` & `lifecycle.go`：在启用 TUN 启动内核时动态检测非 `FerryTun` 活动网卡是否存在公网 IPv6 地址（排除 `fe80::` / `fc00::/7` / `::1`）；若宿主机为纯 IPv4 环境且用户未显式要求 `ipv6_only`，自动以 `ipv4_only` 编译本次运行态配置（不篡改用户已保存的 `prefer_ipv4` 设置，切到双栈网络后可自动恢复 IPv6）。
+  3. 补充 `internal/core/compile/split_dns_test.go`（`TestCompileIPv4OnlyOmitsTunAndFakeIPv6`）与 `internal/core/host/ipv6_test.go`。
+- **失败尝试（Failed Attempts）**：
+  无（通过对照测试 Chrome 默认 / `--disable-quic` / 强制 IPv4 / Mixed 代理一次性定位根因）。
+- **预防措施（Prevention）**：
+  在 TUN 编译与宿主机启动链路中始终将 IPv6 虚拟地址/路由与真实宿主机 IPv6 能力或显式 DNS 策略联动，避免纯 IPv4 宿主机出现合成 `::/0` 黑洞路由。

@@ -105,10 +105,29 @@ export interface TunSettings {
   fakeIp: boolean;
 }
 
+export interface DnsServer {
+  id: string;
+  name: string;
+  address: string;
+  /** direct | proxy */
+  detour?: string;
+}
+
+export interface DnsRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  domains: string[];
+  /** direct | remote | 自定义 DnsServer.id */
+  server: string;
+}
+
 export interface DnsSettings {
   remote: string;
   direct: string;
   strategy: string;
+  servers: DnsServer[];
+  rules: DnsRule[];
 }
 
 /** Settings.Get() / Settings.Set() 的取值（internal/app.SettingsValue）。 */
@@ -124,6 +143,7 @@ export interface SettingsValue {
   tun: TunSettings;
   dns: DnsSettings;
   ruleSetAutoUpdate: boolean;
+  ruleSetUpdateHours: number;
   subscriptionUA: string;
   subscriptionUpdateHours: number;
   logLevel: string;

@@ -18,7 +18,7 @@ func Build(s spec.RunSpec, r spec.Rule) (map[string]any, error) {
 	}
 	r.Apps = apps
 	conditions := otherConditions(r)
-	if hosts := hostConditions(r.Hosts); len(hosts) > 0 {
+	if hosts := hostConditions(s, r.Hosts); len(hosts) > 0 {
 		conditions = append(conditions, logical("or", hosts))
 	}
 	result := logical("and", conditions)

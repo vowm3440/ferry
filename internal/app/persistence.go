@@ -57,7 +57,12 @@ func NewPersistentSession(remote Remote, storage Storage) (*Session, error) {
 func (s *Session) snapshot() savedSession {
 	state := savedSession{Version: 1, Config: s.config, Settings: s.settings,
 		Favorites: maps.Clone(s.favorites), Selected: maps.Clone(s.selected), Subs: []savedSubscription{}}
+	state.Config.RuleSets = slices.Clone(s.config.RuleSets)
+	state.Config.DNS.Servers = cloneDNSServers(s.config.DNS.Servers)
+	state.Config.DNS.Rules = cloneDNSRules(s.config.DNS.Rules)
 	state.Settings.Tun.Excludes = slices.Clone(s.settings.Tun.Excludes)
+	state.Settings.DNS.Servers = cloneDNSServers(s.settings.DNS.Servers)
+	state.Settings.DNS.Rules = cloneDNSRules(s.settings.DNS.Rules)
 	for _, sub := range s.subs {
 		state.Subs = append(state.Subs, savedSubscription{View: sub.view, NodeIDs: slices.Clone(sub.nodeIDs), GroupIDs: slices.Clone(sub.groupIDs), URL: sub.url, CustomUA: sub.customUA})
 	}

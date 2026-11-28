@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"ferry/internal/core/compile"
 	"ferry/internal/telemetry"
 )
 
@@ -76,6 +77,7 @@ func (h *Host) LatencyTest(ctx context.Context, ids []string) (map[string]int, e
 type rawConnection struct {
 	ID       string `json:"id"`
 	Metadata struct {
+		Network         string `json:"network"`
 		Host            string `json:"host"`
 		DestinationIP   string `json:"destinationIP"`
 		DestinationPort string `json:"destinationPort"`
@@ -104,32 +106,47 @@ func (h *Host) Connections(ctx context.Context) ([]telemetry.Connection, error) 
 		return nil, errors.New("连接数量超过显示限制")
 	}
 	for _, c := range response.Connections {
-		port, err := strconv.Atoi(c.Metadata.DestinationPort)
-		if err != nil || port < 0 || port > 65535 {
-			return nil, errors.New("连接端口无效")
-		}
-		item := telemetry.Connection{ID: c.ID, ProcessPath: c.Metadata.ProcessPath, Host: c.Metadata.Host, Port: port, RuleName: c.Rule, Action: "proxy", Chain: c.Chains, Up: c.Upload, Down: c.Download, StartAt: c.Start.UnixMilli()}
-		if item.ProcessPath != "" {
-			item.Process = filepath.Base(item.ProcessPath)
-		}
-		if item.Host == "" {
-			item.Host = c.Metadata.DestinationIP
-		}
-		if item.Chain == nil {
-			item.Chain = []string{}
-		}
-		if len(c.Chains) > 0 {
-			item.OutboundTag = c.Chains[0]
-		}
-		if item.OutboundTag == "__direct" || item.OutboundTag == "DIRECT" {
-			item.Action = "direct"
-		}
-		if item.OutboundTag == "REJECT" || item.OutboundTag == "__block" {
-			item.Action = "block"
+		item, err := mapRawConnection(c, i.ruleLookup)
+		if err != nil {
+			return nil, err
 		}
 		result = append(result, item)
 	}
 	return result, nil
+}
+
+func mapRawConnection(c rawConnection, lookup map[string]compile.RuleMeta) (telemetry.Connection, error) {
+	port, err := strconv.Atoi(c.Metadata.DestinationPort)
+	if err != nil || port < 0 || port > 65535 {
+		return telemetry.Connection{}, errors.New("连接端口无效")
+	}
+	item := telemetry.Connection{
+		ID: c.ID, ProcessPath: c.Metadata.ProcessPath, Host: c.Metadata.Host, Port: port,
+		Network: c.Metadata.Network, RuleName: c.Rule, Action: "proxy",
+		Chain: c.Chains, Up: c.Upload, Down: c.Download, StartAt: c.Start.UnixMilli(),
+	}
+	if attr, ok := lookup[c.Rule]; ok {
+		item.RuleID, item.RuleName, item.RuleDetail = attr.RuleID, attr.RuleName, c.Rule
+	}
+	if item.ProcessPath != "" {
+		item.Process = filepath.Base(item.ProcessPath)
+	}
+	if item.Host == "" {
+		item.Host = c.Metadata.DestinationIP
+	}
+	if item.Chain == nil {
+		item.Chain = []string{}
+	}
+	if len(c.Chains) > 0 {
+		item.OutboundTag = c.Chains[0]
+	}
+	if item.OutboundTag == "__direct" || item.OutboundTag == "DIRECT" {
+		item.Action = "direct"
+	}
+	if item.OutboundTag == "REJECT" || item.OutboundTag == "__block" {
+		item.Action = "block"
+	}
+	return item, nil
 }
 
 func (h *Host) CloseConnection(ctx context.Context, id string) error {

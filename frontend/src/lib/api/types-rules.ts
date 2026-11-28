@@ -19,6 +19,9 @@ export const DEFAULT_TARGET_ID = 'proxy';
 /** 引用应用分组的写法：@group:<分组 id>。 */
 export const APP_GROUP_PREFIX = '@group:';
 
+/** 引用自定义远程 SRS 规则集的写法：ruleset:<规则集 id>。 */
+export const CUSTOM_RULE_SET_PREFIX = 'ruleset:';
+
 /** Rules.List() / Rules.Save() 的规则（internal/spec.Rule）。 */
 export interface Rule {
   /** 新建时为空串，由后端生成。 */
@@ -71,6 +74,37 @@ export interface RuleTestResult {
   stage: string;
 }
 
+/** 自定义远程 SRS 规则集定义（internal/spec.RuleSet）。 */
+export interface CustomRuleSet {
+  id: string;
+  name: string;
+  url: string;
+  autoUpdate?: boolean;
+  /** 0 表示继承全局刷新间隔；1–720 小时。 */
+  updateHours?: number;
+}
+
+/** 懒人分流预设选项（internal/routing.LazyPresetOptions）。 */
+export interface LazyPresetOptions {
+  replaceExisting: boolean;
+  enableAds: boolean;
+  enableAi: boolean;
+  enableAppleSteam: boolean;
+  enableCnSplit: boolean;
+  enableSplitDns: boolean;
+  intranetDns: string;
+  intranetDomains: string[];
+}
+
+/** Rules.ApplyLazyPreset() 的返回值。 */
+export interface ApplyPresetResult {
+  ruleCount: number;
+  ruleSetCount: number;
+  appGroupCount: number;
+  dnsRuleCount: number;
+  missingRuleSets: string[];
+}
+
 /** RuleSets.List() 的规则集（internal/telemetry.RuleSetInfo）。 */
 export interface RuleSetInfo {
   id: string;
@@ -81,4 +115,7 @@ export interface RuleSetInfo {
   sizeBytes: number;
   /** missing | ready | updating | error | invalid */
   status: string;
+  custom?: boolean;
+  autoUpdate?: boolean;
+  updateHours?: number;
 }

@@ -1,11 +1,14 @@
 ; Ferry NSIS Installer Script (LZMA Solid)
-; Build with: makensis /DVERSION=0.2.0 /DOUTFILE=..\dist\Ferry-0.2.0-windows-amd64-setup.exe installer.nsi
+; Build with: makensis /DVERSION=0.3.0 /DOUTFILE=..\dist\Ferry-0.3.0-windows-amd64-setup.exe installer.nsi
 
 !include "MUI2.nsh"
 !include "x64.nsh"
 
 !ifndef VERSION
-  !define VERSION "0.2.0-dev"
+  !define VERSION "0.3.0-dev"
+!endif
+!ifndef BINDIR
+  !define BINDIR "..\bin"
 !endif
 !ifndef OUTFILE
   !define OUTFILE "..\dist\Ferry-${VERSION}-windows-amd64-setup.exe"
@@ -46,8 +49,8 @@ Section "Ferry Core & GUI" SecMain
   nsExec::ExecToLog 'taskkill.exe /F /IM ferry-core.exe'
   Sleep 400
 
-  File "..\bin\Ferry.exe"
-  File "..\bin\ferry-core.exe"
+  File "${BINDIR}\Ferry.exe"
+  File "${BINDIR}\ferry-core.exe"
   File "..\LICENSE"
   File "..\NOTICE"
   File "..\README.md"

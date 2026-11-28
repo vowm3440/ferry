@@ -1,13 +1,16 @@
-param([string]$Version = '0.2.0', [switch]$SkipBuild, [switch]$SkipSmoke, [switch]$Force)
+param([string]$Version = '0.3.0', [string]$BinDir = 'bin', [switch]$SkipBuild, [switch]$SkipSmoke, [switch]$Force)
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid package version.' }
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$resolvedBin = if ([System.IO.Path]::IsPathRooted($BinDir)) { $BinDir } else { Join-Path $projectRoot $BinDir }
 Push-Location -LiteralPath $projectRoot
 try {
     if (-not $SkipBuild) {
-        & (Join-Path $PSScriptRoot 'test.ps1') -Version $Version -SkipSmoke:$SkipSmoke
+        & (Join-Path $PSScriptRoot 'test.ps1') -Version $Version -BinDir $resolvedBin -SkipSmoke:$SkipSmoke
     }
-    foreach ($required in @('bin\Ferry.exe','bin\ferry-core.exe','LICENSE','NOTICE','README.md')) {
+    $guiExe = Join-Path $resolvedBin 'Ferry.exe'
+    $coreExe = Join-Path $resolvedBin 'ferry-core.exe'
+    foreach ($required in @($guiExe,$coreExe,'LICENSE','NOTICE','README.md')) {
         if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Missing package input: $required" }
     }
     Add-Type -AssemblyName System.IO.Compression
@@ -34,8 +37,8 @@ try {
         } finally { $archive.Dispose(); $stream.Dispose() }
     }
     $binaryEntries = @(
-        @{ Path = (Join-Path $projectRoot 'bin\Ferry.exe'); Name = 'Ferry.exe' },
-        @{ Path = (Join-Path $projectRoot 'bin\ferry-core.exe'); Name = 'ferry-core.exe' },
+        @{ Path = $guiExe; Name = 'Ferry.exe' },
+        @{ Path = $coreExe; Name = 'ferry-core.exe' },
         @{ Path = (Join-Path $projectRoot 'LICENSE'); Name = 'LICENSE' },
         @{ Path = (Join-Path $projectRoot 'NOTICE'); Name = 'NOTICE' },
         @{ Path = (Join-Path $projectRoot 'README.md'); Name = 'README.md' }
@@ -43,7 +46,7 @@ try {
     Write-Archive $binaryPath $binaryEntries
     $sourceEntries = [System.Collections.Generic.List[object]]::new()
     $sourceFiles = @('go.mod','go.sum','LICENSE','NOTICE','README.md','.gitignore')
-    $sourceRoots = @('build','cmd','internal','scripts','testdata','docs\plan','docs\research','frontend\src','frontend\tests','frontend\public')
+    $sourceRoots = @('build','cmd','internal','scripts','testdata','docs\plan','docs\presets','docs\research','frontend\src','frontend\tests','frontend\public')
     if (Test-Path -LiteralPath '.github') { $sourceRoots += '.github' }
     $sourceFiles += Get-ChildItem -LiteralPath frontend -File -Force | Select-Object -ExpandProperty FullName
     foreach ($sourceRoot in $sourceRoots) {
@@ -78,7 +81,7 @@ try {
     }
     $installerScript = Join-Path $projectRoot 'build\installer.nsi'
     if ($makensisExe -and (Test-Path -LiteralPath $installerScript -PathType Leaf)) {
-        & $makensisExe "/DVERSION=$Version" "/DOUTFILE=$installerPath" $installerScript
+        & $makensisExe "/DVERSION=$Version" "/DBINDIR=$resolvedBin" "/DOUTFILE=$installerPath" $installerScript
         if ($LASTEXITCODE -ne 0) { throw 'NSIS installer build failed.' }
         $hashTargets.Add($installerPath)
     } else {

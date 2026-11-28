@@ -7,11 +7,11 @@
  * 规则集列表只给出目录，状态恒为「未下载」。
  */
 
-import { appProblem, hostProblem, isValidId, isValidLabel, isValidRuleApp, portProblem, MAX_APP_GROUPS, MAX_RULE_ITEMS, MAX_RULES } from '../rules-validate';
+import { appProblem, hostProblem, isValidId, isValidLabel, isValidRuleApp, isValidRuleSetUrl, MAX_APP_GROUPS, MAX_CUSTOM_RULE_SETS, MAX_RULE_ITEMS, MAX_RULES, portProblem } from '../rules-validate';
 import type { RulesApi } from './backend';
 import { rejected, unsupported, type DemoWorld } from './demo-world';
 import { EVENT_RULES_APPLIED } from './types';
-import { DEFAULT_TARGET_ID, RULE_ACTIONS, RULE_ID_DEFAULT, RULE_ID_LAN, RULE_NETWORKS, type AppGroup, type Rule, type RuleSetInfo } from './types-rules';
+import { CUSTOM_RULE_SET_PREFIX, DEFAULT_TARGET_ID, RULE_ACTIONS, RULE_ID_DEFAULT, RULE_ID_LAN, RULE_NETWORKS, type AppGroup, type CustomRuleSet, type LazyPresetOptions, type Rule, type RuleSetInfo } from './types-rules';
 
 const LAN_HOSTS: readonly string[] = [
   '0.0.0.0/8',
@@ -72,8 +72,19 @@ function firstProblem(items: readonly string[], check: (item: string) => string)
   return '';
 }
 
+const COMMUNITY_BASE = 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/';
+const COMMUNITY_PRESETS: readonly CustomRuleSet[] = [
+  { id: 'openai', name: 'OpenAI / ChatGPT', url: `${COMMUNITY_BASE}openai.srs`, autoUpdate: true, updateHours: 24 },
+  { id: 'anthropic', name: 'Claude / Anthropic', url: `${COMMUNITY_BASE}anthropic.srs`, autoUpdate: true, updateHours: 24 },
+  { id: 'apple-cn', name: 'Apple 国内直连', url: `${COMMUNITY_BASE}apple-cn.srs`, autoUpdate: true, updateHours: 24 },
+  { id: 'steam-cn', name: 'Steam 国内直连', url: `${COMMUNITY_BASE}steam@cn.srs`, autoUpdate: true, updateHours: 24 },
+  { id: 'ads', name: '广告与跟踪拦截', url: `${COMMUNITY_BASE}category-ads-all.srs`, autoUpdate: true, updateHours: 24 },
+  { id: 'github', name: 'GitHub', url: `${COMMUNITY_BASE}github.srs`, autoUpdate: true, updateHours: 24 },
+  { id: 'google', name: 'Google', url: `${COMMUNITY_BASE}google.srs`, autoUpdate: true, updateHours: 24 },
+];
+
 /** 与 spec.ValidateRule 相同的顺序与文案（展开后的应用条件上限除外）。 */
-function ruleProblem(rule: Rule, groups: readonly AppGroup[], targets: ReadonlySet<string>): string {
+function ruleProblem(rule: Rule, groups: readonly AppGroup[], targets: ReadonlySet<string>, customSetIds: ReadonlySet<string>): string {
   if (!isValidId(rule.id) || !isValidLabel(rule.name)) return '规则标识或名称无效';
   if (!(RULE_NETWORKS as readonly string[]).includes(rule.network) || !(RULE_ACTIONS as readonly string[]).includes(rule.action)) return '规则协议或动作无效';
   if (rule.pinned === true) return isBuiltin(rule.id) ? '固定规则不可修改' : '普通规则不可标记为固定规则';
@@ -81,7 +92,7 @@ function ruleProblem(rule: Rule, groups: readonly AppGroup[], targets: ReadonlyS
   const targetOk = rule.action === 'proxy' ? target === '' || target === DEFAULT_TARGET_ID || targets.has(target) : target === '';
   if (!targetOk) return '规则目标不存在或不适用于此动作';
   if (rule.apps.length > MAX_RULE_ITEMS || rule.hosts.length > MAX_RULE_ITEMS || rule.ports.length > MAX_RULE_ITEMS) return '规则条件数量超过限制';
-  return firstProblem(rule.apps, (app) => appProblem(app, groups)) || firstProblem(rule.hosts, hostProblem) || firstProblem(rule.ports, portProblem);
+  return firstProblem(rule.apps, (app) => appProblem(app, groups)) || firstProblem(rule.hosts, (host) => hostProblem(host, customSetIds)) || firstProblem(rule.ports, portProblem);
 }
 
 function groupProblem(group: AppGroup): string {
@@ -107,11 +118,13 @@ function reordered(current: readonly Rule[], ids: readonly string[]): Rule[] {
 export function createDemoRules(world: DemoWorld): RulesApi {
   let rules: readonly Rule[] = builtinRules();
   let groups: readonly AppGroup[] = [];
+  let customSets: readonly CustomRuleSet[] = [];
   let version = 0;
 
   world.onReset(() => {
     rules = builtinRules();
     groups = [];
+    customSets = [];
   });
 
   const targets = (): ReadonlySet<string> => {
@@ -128,9 +141,10 @@ export function createDemoRules(world: DemoWorld): RulesApi {
     }
     if (nextRules.length > MAX_RULES) throw rejected('规则数量超过限制');
     const ids = targets();
+    const customIds = new Set(customSets.map((item) => item.id));
     for (const rule of nextRules) {
       if (isBuiltin(rule.id)) continue;
-      const problem = ruleProblem(rule, nextGroups, ids);
+      const problem = ruleProblem(rule, nextGroups, ids, customIds);
       if (problem !== '') throw rejected(problem);
     }
     rules = nextRules;
@@ -212,6 +226,50 @@ export function createDemoRules(world: DemoWorld): RulesApi {
       throw unsupported();
     },
 
+    async rulesDefaultLazyPreset(): Promise<LazyPresetOptions> {
+      return {
+        replaceExisting: true,
+        enableAds: true,
+        enableAi: true,
+        enableAppleSteam: true,
+        enableCnSplit: true,
+        enableSplitDns: true,
+        intranetDns: '',
+        intranetDomains: ['*.corp', '*.local', '*.lan', '*.internal', '*.home.arpa'],
+      };
+    },
+
+    async rulesApplyLazyPreset(opts: LazyPresetOptions) {
+      const addSets = COMMUNITY_PRESETS.filter(
+        (rs) =>
+          (opts.enableAds && rs.id === 'ads') ||
+          (opts.enableAi && (rs.id === 'openai' || rs.id === 'anthropic')) ||
+          (opts.enableAppleSteam && (rs.id === 'apple-cn' || rs.id === 'steam-cn')),
+      );
+      for (const rs of addSets) {
+        customSets = customSets.some((cur) => cur.id === rs.id) ? customSets.map((cur) => (cur.id === rs.id ? rs : cur)) : [...customSets, rs];
+      }
+      const nextGroups: AppGroup[] = [
+        ...groups.filter((g) => !['ag-cn-office', 'ag-ai-dev', 'ag-games'].includes(g.id)),
+        { id: 'ag-cn-office', name: '国内办公与通讯', apps: ['WeChat.exe', 'QQ.exe', 'DingTalk.exe', 'Feishu.exe'] },
+        ...(opts.enableAi ? [{ id: 'ag-ai-dev', name: 'AI 与开发工具', apps: ['Cursor.exe', 'Code.exe', 'git.exe'] }] : []),
+        ...(opts.enableAppleSteam ? [{ id: 'ag-games', name: '游戏平台', apps: ['steam.exe', 'EpicGamesLauncher.exe'] }] : []),
+      ];
+      const proxyTarget = world.nodeList().groups[0]?.id ?? DEFAULT_TARGET_ID;
+      const presetRules: Rule[] = [
+        ...(opts.enableAds ? [{ id: 'preset-ads-block', name: '广告与跟踪拦截', enabled: true, apps: [], hosts: ['ruleset:ads'], ports: [], network: 'any', action: 'block', resolveBefore: false }] : []),
+        ...(opts.intranetDomains.length > 0 ? [{ id: 'preset-intranet-direct', name: '公司内网 / 本地域名直连', enabled: true, apps: [], hosts: [...opts.intranetDomains], ports: [], network: 'any', action: 'direct', resolveBefore: false }] : []),
+        ...(opts.enableAi ? [{ id: 'preset-ai-apps', name: 'AI 与开发工具代理', enabled: true, apps: ['@group:ag-ai-dev'], hosts: [], ports: [], network: 'any', action: 'proxy', targetId: proxyTarget, resolveBefore: false }, { id: 'preset-ai-domains', name: 'AI 服务分流 (OpenAI / Claude)', enabled: true, apps: [], hosts: ['ruleset:openai', 'ruleset:anthropic'], ports: [], network: 'any', action: 'proxy', targetId: proxyTarget, resolveBefore: false }] : []),
+        { id: 'preset-cn-office', name: '国内办公与通讯直连', enabled: true, apps: ['@group:ag-cn-office'], hosts: [], ports: [], network: 'any', action: 'direct', resolveBefore: false },
+        ...(opts.enableAppleSteam ? [{ id: 'preset-apple-steam-cn', name: 'Apple / Steam 国内直连', enabled: true, apps: [], hosts: ['ruleset:apple-cn', 'ruleset:steam-cn'], ports: [], network: 'any', action: 'direct', resolveBefore: false }] : []),
+        ...(opts.enableCnSplit ? [{ id: 'preset-cn-domains', name: '中国大陆域名直连', enabled: true, apps: [], hosts: ['geosite:cn'], ports: [], network: 'any', action: 'direct', resolveBefore: false }, { id: 'preset-non-cn-domains', name: '海外域名代理', enabled: true, apps: [], hosts: ['geosite:geolocation-!cn'], ports: [], network: 'any', action: 'proxy', targetId: proxyTarget, resolveBefore: false }, { id: 'preset-cn-ip', name: '中国大陆 IP 直连', enabled: true, apps: [], hosts: ['geoip:cn'], ports: [], network: 'any', action: 'direct', resolveBefore: true }] : []),
+      ];
+      const base = opts.replaceExisting ? [] : rules.filter((r) => !isBuiltin(r.id));
+      const [lan, def] = builtinRules();
+      await commit([lan!, ...base, ...presetRules, def!], nextGroups);
+      return { ruleCount: rules.length, ruleSetCount: customSets.length, appGroupCount: groups.length, dnsRuleCount: opts.enableSplitDns ? 2 : 0, missingRuleSets: [] };
+    },
+
     async appGroupsList() {
       return groups.map(cloneGroup);
     },
@@ -223,6 +281,14 @@ export function createDemoRules(world: DemoWorld): RulesApi {
       return cloneGroup(group);
     },
 
+    async appGroupsAddApp(groupId, app) {
+      const current = groups.find((item) => item.id === groupId);
+      if (current === undefined) throw rejected('应用分组不存在');
+      const next = cloneGroup({ ...current, apps: current.apps.includes(app) ? current.apps : [...current.apps, app] });
+      await commit(rules, groups.map((item) => (item.id === groupId ? next : item)));
+      return cloneGroup(next);
+    },
+
     async appGroupsRemove(id) {
       if (!groups.some((group) => group.id === id)) throw rejected('应用分组不存在');
       if (rules.some((rule) => rule.apps.includes(`@group:${id}`))) throw rejected('规则仍在引用此应用分组，请先移除对应引用');
@@ -230,11 +296,41 @@ export function createDemoRules(world: DemoWorld): RulesApi {
     },
 
     async ruleSetsList() {
-      return RULE_SET_CATALOG.map((item) => ({ ...item }));
+      return [
+        ...RULE_SET_CATALOG.map((item) => ({ ...item })),
+        ...customSets.map((item) => ({ ...item, updatedAt: 0, sizeBytes: 0, status: 'missing', custom: true })),
+      ];
     },
 
     async ruleSetsUpdate() {
       throw unsupported();
+    },
+
+    async ruleSetsPresets() {
+      return COMMUNITY_PRESETS.map((item) => ({ ...item }));
+    },
+
+    async ruleSetsSave(input) {
+      const rs: CustomRuleSet = { ...input, id: input.id.trim(), name: input.name.trim(), url: input.url.trim() };
+      if (!isValidId(rs.id) || RULE_SET_CATALOG.some((item) => item.id === rs.id) || !isValidLabel(rs.name)) {
+        throw rejected('自定义规则集标识或名称无效，且不能与内置规则集重名');
+      }
+      if (!isValidRuleSetUrl(rs.url)) throw rejected('自定义规则集地址须为有效的 HTTPS .srs 链接');
+      const exists = customSets.some((item) => item.id === rs.id);
+      if (!exists && customSets.length >= MAX_CUSTOM_RULE_SETS) throw rejected('自定义规则集数量超过限制');
+      customSets = exists ? customSets.map((item) => (item.id === rs.id ? rs : item)) : [...customSets, rs];
+      version += 1;
+      world.emit(EVENT_RULES_APPLIED, { version });
+      return { ...rs };
+    },
+
+    async ruleSetsRemove(id) {
+      if (RULE_SET_CATALOG.some((item) => item.id === id)) throw rejected('内置规则集不可删除');
+      if (!customSets.some((item) => item.id === id)) throw rejected('自定义规则集不存在');
+      if (rules.some((rule) => rule.hosts.includes(CUSTOM_RULE_SET_PREFIX + id))) throw rejected('仍有路由规则或分流 DNS 引用此规则集，请先移除引用');
+      customSets = customSets.filter((item) => item.id !== id);
+      version += 1;
+      world.emit(EVENT_RULES_APPLIED, { version });
     },
   };
 }

@@ -135,24 +135,67 @@ func (s *Session) RunBackground(ctx context.Context) {
 }
 
 func (s *Session) syncRuleSetsIfDue(ctx context.Context, now time.Time) {
-	s.mu.Lock()
-	enabled := s.settings.RuleSetAutoUpdate
-	last := s.lastRuleSetSync
-	_, ok := s.remote.(ipc.RuleSetManager)
-	if enabled && ok && (last == 0 || now.Sub(time.UnixMilli(last)) >= 24*time.Hour) {
-		s.lastRuleSetSync = now.UnixMilli()
-	} else {
-		enabled = false
-	}
-	s.mu.Unlock()
-	if !enabled {
+	dueIDs, prevBuiltin, prevCustom := s.collectDueRuleSets(now)
+	if len(dueIDs) == 0 {
 		return
 	}
-	if err := s.RuleSets().Update(ctx, spec.RuleSetCatalogIDs()); err != nil {
+	if err := s.RuleSets().Update(ctx, dueIDs); err != nil {
 		s.mu.Lock()
-		s.lastRuleSetSync = last
+		s.lastRuleSetSync = prevBuiltin
+		s.customSetSync = prevCustom
 		s.mu.Unlock()
 	}
+}
+
+func (s *Session) collectDueRuleSets(now time.Time) ([]string, int64, map[string]int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.remote.(ipc.RuleSetManager); !ok {
+		return nil, 0, nil
+	}
+	prevBuiltin := s.lastRuleSetSync
+	prevCustom := cloneSyncMap(s.customSetSync)
+	globalHours := s.settings.RuleSetUpdateHours
+	if globalHours <= 0 {
+		globalHours = 24
+	}
+	var due []string
+	if s.settings.RuleSetAutoUpdate && isDue(s.lastRuleSetSync, globalHours, now) {
+		s.lastRuleSetSync = now.UnixMilli()
+		due = append(due, spec.RuleSetCatalogIDs()...)
+	}
+	if s.customSetSync == nil {
+		s.customSetSync = map[string]int64{}
+	}
+	for _, rs := range s.config.RuleSets {
+		if !rs.AutoUpdate {
+			continue
+		}
+		hours := rs.UpdateHours
+		if hours <= 0 {
+			hours = globalHours
+		}
+		if isDue(s.customSetSync[rs.ID], hours, now) {
+			s.customSetSync[rs.ID] = now.UnixMilli()
+			due = append(due, rs.ID)
+		}
+	}
+	return due, prevBuiltin, prevCustom
+}
+
+func isDue(lastMs int64, hours int, now time.Time) bool {
+	return lastMs == 0 || now.Sub(time.UnixMilli(lastMs)) >= time.Duration(hours)*time.Hour
+}
+
+func cloneSyncMap(src map[string]int64) map[string]int64 {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[string]int64, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
 }
 
 func (s *Subs) updateDue(ctx context.Context, now time.Time) {

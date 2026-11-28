@@ -14,17 +14,20 @@ import (
 	"net"
 	"net/http"
 	"time"
+	F "github.com/sagernet/sing/common/format"
 )
 
 type instance struct {
-	box     *box.Box
-	cancel  context.CancelFunc
-	address string
-	secret  string
-	client  *http.Client
-	groups  map[string]map[string]bool
-	nodes   map[string]bool
-	started time.Time
+	box          *box.Box
+	cancel       context.CancelFunc
+	address      string
+	secret       string
+	client       *http.Client
+	groups       map[string]map[string]bool
+	nodes        map[string]bool
+	ruleLookup   map[string]compile.RuleMeta
+	proxyTraffic *proxyTrafficTracker
+	started      time.Time
 }
 
 func newInstance(options option.Options, s spec.RunSpec, logs *logBuffer) (*instance, error) {
@@ -46,14 +49,40 @@ func newInstance(options option.Options, s spec.RunSpec, logs *logBuffer) (*inst
 	// Passing PlatformLogWriter to box.New implicitly enables sing-box's
 	// cache.db. Attach after construction to preserve Ferry's own state source.
 	core.LogFactory().AttachPlatformWriter(logs)
+	proxyTraffic := &proxyTrafficTracker{}
+	if core.Router() != nil {
+		core.Router().AppendTracker(proxyTraffic)
+	}
 	if err := core.Start(); err != nil {
 		cancel() // sing-box Start closes partial instances on failure.
 		return nil, errors.New("内核启动失败，请检查代理端口是否被占用及节点参数")
 	}
 	return &instance{box: core, cancel: cancel, address: address, secret: secret,
 		client: &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{Proxy: nil}},
-		groups: selectionGroups(s), nodes: nodeSet(s), started: time.Now(),
+		groups: selectionGroups(s), nodes: nodeSet(s), ruleLookup: buildRuleLookup(core, s),
+		proxyTraffic: proxyTraffic, started: time.Now(),
 	}, nil
+}
+
+func buildRuleLookup(core *box.Box, s spec.RunSpec) map[string]compile.RuleMeta {
+	lookup := map[string]compile.RuleMeta{
+		"final": {RuleID: spec.BuiltinDefaultRuleID, RuleName: "默认规则", Kind: "rule"},
+	}
+	if core == nil || core.Router() == nil {
+		return lookup
+	}
+	compiled := core.Router().Rules()
+	meta := compile.CompiledRuleMeta(s)
+	for i := 0; i < len(compiled) && i < len(meta); i++ {
+		if meta[i].Kind == "system" || meta[i].Kind == "resolve" {
+			continue
+		}
+		key := F.ToString(compiled[i], " => ", compiled[i].Action())
+		if _, exists := lookup[key]; !exists {
+			lookup[key] = meta[i]
+		}
+	}
+	return lookup
 }
 
 func nodeSet(s spec.RunSpec) map[string]bool {

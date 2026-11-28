@@ -4,7 +4,7 @@
  */
 
 import { asRecord, isRecord, readArray, readBool, readNumber, readString, readStringArray } from '../guard';
-import type { AppGroup, ImportPreview, Rule, RuleSetInfo, RuleTestResult } from './types-rules';
+import type { AppGroup, ApplyPresetResult, CustomRuleSet, ImportPreview, LazyPresetOptions, Rule, RuleSetInfo, RuleTestResult } from './types-rules';
 
 /** 动作缺失时保持空串：界面把它显示成「未知」，不会冒充成代理或直连。 */
 export function parseRule(value: unknown): Rule {
@@ -67,6 +67,9 @@ export function parseRuleTestResult(value: unknown): RuleTestResult {
 
 function parseRuleSet(value: unknown): RuleSetInfo {
   const source = asRecord(value);
+  const custom = readBool(source, 'custom');
+  const autoUpdate = readBool(source, 'autoUpdate');
+  const updateHours = readNumber(source, 'updateHours');
   return {
     id: readString(source, 'id'),
     name: readString(source, 'name'),
@@ -74,9 +77,54 @@ function parseRuleSet(value: unknown): RuleSetInfo {
     updatedAt: readNumber(source, 'updatedAt'),
     sizeBytes: readNumber(source, 'sizeBytes'),
     status: readString(source, 'status', 'missing'),
+    ...(custom ? { custom: true } : {}),
+    ...(autoUpdate ? { autoUpdate: true } : {}),
+    ...(updateHours > 0 ? { updateHours } : {}),
   };
 }
 
 export function parseRuleSets(value: unknown): RuleSetInfo[] {
   return (Array.isArray(value) ? value : []).map(parseRuleSet).filter((item) => item.id !== '');
+}
+
+export function parseCustomRuleSet(value: unknown): CustomRuleSet {
+  const source = asRecord(value);
+  const autoUpdate = readBool(source, 'autoUpdate');
+  const updateHours = readNumber(source, 'updateHours');
+  return {
+    id: readString(source, 'id'),
+    name: readString(source, 'name'),
+    url: readString(source, 'url'),
+    ...(autoUpdate ? { autoUpdate: true } : {}),
+    ...(updateHours > 0 ? { updateHours } : {}),
+  };
+}
+
+export function parseCustomRuleSets(value: unknown): CustomRuleSet[] {
+  return (Array.isArray(value) ? value : []).map(parseCustomRuleSet).filter((item) => item.id !== '');
+}
+
+export function parseLazyPresetOptions(value: unknown): LazyPresetOptions {
+  const source = asRecord(value);
+  return {
+    replaceExisting: readBool(source, 'replaceExisting', true),
+    enableAds: readBool(source, 'enableAds', true),
+    enableAi: readBool(source, 'enableAi', true),
+    enableAppleSteam: readBool(source, 'enableAppleSteam', true),
+    enableCnSplit: readBool(source, 'enableCnSplit', true),
+    enableSplitDns: readBool(source, 'enableSplitDns', true),
+    intranetDns: readString(source, 'intranetDns'),
+    intranetDomains: readStringArray(source, 'intranetDomains'),
+  };
+}
+
+export function parseApplyPresetResult(value: unknown): ApplyPresetResult {
+  const source = asRecord(value);
+  return {
+    ruleCount: readNumber(source, 'ruleCount'),
+    ruleSetCount: readNumber(source, 'ruleSetCount'),
+    appGroupCount: readNumber(source, 'appGroupCount'),
+    dnsRuleCount: readNumber(source, 'dnsRuleCount'),
+    missingRuleSets: readStringArray(source, 'missingRuleSets'),
+  };
 }

@@ -18,14 +18,18 @@ import {
 function parseConnection(value: unknown): Connection {
   const source = asRecord(value);
   const ruleId = readString(source, 'ruleId');
+  const ruleDetail = readString(source, 'ruleDetail');
+  const network = readString(source, 'network');
   return {
     id: readString(source, 'id'),
     process: readString(source, 'process'),
     processPath: readString(source, 'processPath'),
     host: readString(source, 'host'),
     port: readNumber(source, 'port'),
+    ...(network === '' ? {} : { network }),
     ruleName: readString(source, 'ruleName'),
     ...(ruleId === '' ? {} : { ruleId }),
+    ...(ruleDetail === '' ? {} : { ruleDetail }),
     action: readString(source, 'action'),
     outboundTag: readString(source, 'outboundTag'),
     chain: readStringArray(source, 'chain'),

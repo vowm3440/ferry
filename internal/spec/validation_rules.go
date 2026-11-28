@@ -66,10 +66,11 @@ func (s RunSpec) ValidateRule(r Rule) error {
 		return err
 	}
 	for _, host := range r.Hosts {
-		if _, ok := RuleSetID(host); ok {
+		if _, ok := s.RuleSetID(host); ok {
 			continue
 		}
-		if strings.HasPrefix(strings.ToLower(host), "geoip:") || strings.HasPrefix(strings.ToLower(host), "geosite:") {
+		lower := strings.ToLower(host)
+		if strings.HasPrefix(lower, "geoip:") || strings.HasPrefix(lower, "geosite:") || strings.HasPrefix(lower, CustomRuleSetPrefix) {
 			return errors.New("规则集不在支持的目录内，请选择已列出的规则集")
 		}
 		if !validRuleHost(host) {

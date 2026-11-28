@@ -11,8 +11,10 @@ export interface Connection {
   processPath: string;
   host: string;
   port: number;
+  network?: string;
   ruleName: string;
   ruleId?: string;
+  ruleDetail?: string;
   /** direct | block | proxy */
   action: string;
   outboundTag: string;

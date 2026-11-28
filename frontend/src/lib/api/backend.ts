@@ -8,7 +8,7 @@
 
 import type { BackendEvent, CoreState, Group, NodeList, SettingsValue, Subscription, Traffic } from './types';
 import type { Connection, DeepLink, DeepLinkPreview, LanShare, LogEntry, ServiceStatus, SysProxyStatus, TunStatus, UpdateInfo, UpdateState } from './types-inspect';
-import type { AppGroup, ImportPreview, Rule, RuleSetInfo, RuleTestResult } from './types-rules';
+import type { AppGroup, ApplyPresetResult, CustomRuleSet, ImportPreview, LazyPresetOptions, Rule, RuleSetInfo, RuleTestResult } from './types-rules';
 
 export type BackendKind = 'wails' | 'demo';
 
@@ -108,15 +108,22 @@ export interface RulesApi {
   rulesImport(kind: string, content: string): Promise<ImportPreview>;
   /** network 只能是 tcp 或 udp。 */
   rulesTest(application: string, host: string, port: number, network: string): Promise<RuleTestResult>;
+  rulesDefaultLazyPreset(): Promise<LazyPresetOptions>;
+  rulesApplyLazyPreset(opts: LazyPresetOptions): Promise<ApplyPresetResult>;
 
   appGroupsList(): Promise<AppGroup[]>;
   /** id 为空串时新建。 */
   appGroupsSave(group: AppGroup): Promise<AppGroup>;
+  /** 幂等追加一个进程名或路径到已有应用分组。 */
+  appGroupsAddApp(groupId: string, app: string): Promise<AppGroup>;
   appGroupsRemove(id: string): Promise<void>;
 
   /** refresh 为 true 时重新检查本地缓存；不会下载。 */
   ruleSetsList(refresh: boolean): Promise<RuleSetInfo[]>;
   ruleSetsUpdate(ids: string[]): Promise<void>;
+  ruleSetsPresets(): Promise<CustomRuleSet[]>;
+  ruleSetsSave(rs: CustomRuleSet): Promise<CustomRuleSet>;
+  ruleSetsRemove(id: string): Promise<void>;
 }
 
 export interface SettingsApi {

@@ -10,7 +10,11 @@ export function cloneSettings(value: SettingsValue): SettingsValue {
   return {
     ...value,
     tun: { ...value.tun, excludes: [...value.tun.excludes] },
-    dns: { ...value.dns },
+    dns: {
+      ...value.dns,
+      servers: (value.dns.servers ?? []).map((srv) => ({ ...srv })),
+      rules: (value.dns.rules ?? []).map((rule) => ({ ...rule, domains: [...rule.domains] })),
+    },
   };
 }
 
@@ -35,8 +39,11 @@ export function createDefaultSettings(): SettingsValue {
       remote: 'https://1.1.1.1/dns-query',
       direct: 'https://223.5.5.5/dns-query',
       strategy: 'prefer_ipv4',
+      servers: [],
+      rules: [],
     },
     ruleSetAutoUpdate: false,
+    ruleSetUpdateHours: 24,
     subscriptionUA: 'clash.meta',
     subscriptionUpdateHours: 24,
     logLevel: 'info',

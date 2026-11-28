@@ -8,10 +8,12 @@ import (
 )
 
 type connectionSnapshot struct {
-	UploadTotal   int64             `json:"uploadTotal"`
-	DownloadTotal int64             `json:"downloadTotal"`
-	Memory        int64             `json:"memory"`
-	Connections   []json.RawMessage `json:"connections"`
+	UploadTotal        int64             `json:"uploadTotal"`
+	DownloadTotal      int64             `json:"downloadTotal"`
+	ProxyDownloadTotal int64             `json:"-"`
+	HasProxyDown       bool              `json:"-"`
+	Memory             int64             `json:"memory"`
+	Connections        []json.RawMessage `json:"connections"`
 }
 
 func (h *Host) Snapshot(ctx context.Context) (Traffic, error) {
@@ -31,6 +33,10 @@ func (h *Host) Snapshot(ctx context.Context) (Traffic, error) {
 	if h.current != running {
 		return zeroTraffic(), nil
 	}
+	if running.proxyTraffic != nil {
+		snapshot.ProxyDownloadTotal = running.proxyTraffic.Download()
+		snapshot.HasProxyDown = true
+	}
 	h.updateTraffic(snapshot)
 	result := h.traffic
 	result.UpHistory = append([]int64(nil), result.UpHistory...)
@@ -39,7 +45,10 @@ func (h *Host) Snapshot(ctx context.Context) (Traffic, error) {
 }
 
 func (h *Host) updateTraffic(snapshot connectionSnapshot) {
-	if snapshot.UploadTotal < h.traffic.TotalUp || snapshot.DownloadTotal < h.traffic.TotalDown {
+	if snapshot.UploadTotal < h.totalUpload || snapshot.DownloadTotal < h.totalDownload {
+		return
+	}
+	if snapshot.HasProxyDown && snapshot.ProxyDownloadTotal < h.traffic.TotalDown {
 		return
 	}
 	now := time.Now()
@@ -52,7 +61,12 @@ func (h *Host) updateTraffic(snapshot connectionSnapshot) {
 		h.sampledAt = now
 		h.rateUpload, h.rateDownload = snapshot.UploadTotal, snapshot.DownloadTotal
 	}
-	h.traffic.TotalUp, h.traffic.TotalDown = snapshot.UploadTotal, snapshot.DownloadTotal
+	h.totalUpload, h.totalDownload = snapshot.UploadTotal, snapshot.DownloadTotal
+	totalDown := snapshot.DownloadTotal
+	if snapshot.HasProxyDown {
+		totalDown = snapshot.ProxyDownloadTotal
+	}
+	h.traffic.TotalUp, h.traffic.TotalDown = snapshot.UploadTotal, totalDown
 	h.traffic.ActiveConns, h.traffic.MemoryBytes = int64(len(snapshot.Connections)), snapshot.Memory
 	h.state.MemoryBytes = snapshot.Memory
 }

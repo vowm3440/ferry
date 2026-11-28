@@ -1,9 +1,10 @@
-param([string]$Version = '0.2.0', [switch]$SkipFrontend, [switch]$SkipSmoke)
+param([string]$Version = '0.3.0', [string]$BinDir = 'bin', [switch]$SkipFrontend, [switch]$SkipSmoke)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$resolvedBin = if ([System.IO.Path]::IsPathRooted($BinDir)) { $BinDir } else { Join-Path $projectRoot $BinDir }
 Push-Location -LiteralPath $projectRoot
 try {
-    & (Join-Path $PSScriptRoot 'build.ps1') -Version $Version -SkipFrontend:$SkipFrontend
+    & (Join-Path $PSScriptRoot 'build.ps1') -Version $Version -BinDir $resolvedBin -SkipFrontend:$SkipFrontend
     if (-not $SkipFrontend) {
         Push-Location -LiteralPath (Join-Path $projectRoot 'frontend')
         try {
@@ -21,7 +22,7 @@ try {
         } finally { Pop-Location }
     }
     $env:CGO_ENABLED = '0'
-    $env:FERRY_TEST_CORE = Join-Path $projectRoot 'bin\ferry-core.exe'
+    $env:FERRY_TEST_CORE = Join-Path $resolvedBin 'ferry-core.exe'
     & go run ./scripts/check-source.go
     if ($LASTEXITCODE -ne 0) { throw 'Go source size limits failed.' }
     & go vet -tags 'with_gvisor,with_quic,with_utls,with_clash_api,with_wireguard' ./...

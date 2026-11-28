@@ -5,6 +5,13 @@ import (
 	"ferry/internal/spec"
 )
 
+// RuleMeta aligns 1-to-1 with the compiled route.rules slice for hit attribution.
+type RuleMeta struct {
+	RuleID   string
+	RuleName string
+	Kind     string // system, mode, resolve, or rule
+}
+
 func compileRoute(s spec.RunSpec) (map[string]any, error) {
 	rules := []any{
 		map[string]any{"action": "sniff"},
@@ -34,6 +41,26 @@ func compileRoute(s spec.RunSpec) (map[string]any, error) {
 		route["auto_detect_interface"] = true
 	}
 	return route, nil
+}
+
+// CompiledRuleMeta returns metadata aligned 1-to-1 with compileRoute's rules list.
+func CompiledRuleMeta(s spec.RunSpec) []RuleMeta {
+	meta := []RuleMeta{
+		{Kind: "system", RuleName: "协议探测"},
+		{Kind: "system", RuleName: "DNS 劫持"},
+		{Kind: "mode", RuleName: "直连模式"},
+		{Kind: "mode", RuleName: "全局模式"},
+	}
+	for _, r := range orderedRules(s.Rules) {
+		if !r.Enabled {
+			continue
+		}
+		if routing.NeedsResolve(r) {
+			meta = append(meta, RuleMeta{Kind: "resolve", RuleID: r.ID, RuleName: r.Name})
+		}
+		meta = append(meta, RuleMeta{Kind: "rule", RuleID: r.ID, RuleName: r.Name})
+	}
+	return meta
 }
 
 // Old saved configurations may omit one or both defaults. Validation guarantees

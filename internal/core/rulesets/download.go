@@ -10,8 +10,8 @@ import (
 
 const maxCompressed = 16 << 20
 
-func downloadClient(supplied *http.Client) *http.Client {
-	client := &http.Client{Timeout: 12 * time.Second, CheckRedirect: checkRedirect}
+func downloadClient(supplied *http.Client, redirect func(*http.Request, []*http.Request) error) *http.Client {
+	client := &http.Client{Timeout: 20 * time.Second, CheckRedirect: redirect}
 	if supplied != nil {
 		client.Transport = supplied.Transport
 		if supplied.Timeout > 0 && supplied.Timeout < client.Timeout {
@@ -25,19 +25,35 @@ func checkRedirect(request *http.Request, via []*http.Request) error {
 	if len(via) >= 5 || request.URL.Scheme != "https" || request.URL.Host != "raw.githubusercontent.com" || request.URL.User != nil {
 		return errors.New("rule-set redirect is not allowed")
 	}
-	for _, key := range []string{"Authorization", "Proxy-Authorization", "Cookie", "Referer"} {
-		request.Header.Del(key)
-	}
+	stripRedirectHeaders(request)
 	return nil
 }
 
-func (m *Manager) fetch(ctx context.Context, address string) ([]byte, error) {
+func checkCustomRedirect(request *http.Request, via []*http.Request) error {
+	if len(via) >= 5 || request.URL.Scheme != "https" || request.URL.Hostname() == "" || request.URL.User != nil {
+		return errors.New("custom rule-set redirect must stay on HTTPS without credentials")
+	}
+	stripRedirectHeaders(request)
+	return nil
+}
+
+func stripRedirectHeaders(request *http.Request) {
+	for _, key := range []string{"Authorization", "Proxy-Authorization", "Cookie", "Referer"} {
+		request.Header.Del(key)
+	}
+}
+
+func (m *Manager) fetch(ctx context.Context, address string, custom bool) ([]byte, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
 	if err != nil {
 		return nil, errors.New("cannot create rule-set download request")
 	}
 	request.Header.Set("Accept-Encoding", "identity")
-	response, err := m.client.Do(request)
+	client := m.client
+	if custom {
+		client = m.customClient
+	}
+	response, err := client.Do(request)
 	if err != nil {
 		return nil, fetchError(ctx, err)
 	}

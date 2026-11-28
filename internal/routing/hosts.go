@@ -7,10 +7,15 @@ import (
 	"strings"
 )
 
-func hostConditions(hosts []string) []map[string]any {
+// BuildDNSDomains builds a single DNS matcher map (with OR semantics when multiple condition types exist).
+func BuildDNSDomains(s spec.RunSpec, domains []string) map[string]any {
+	return logical("or", hostConditions(s, domains))
+}
+
+func hostConditions(s spec.RunSpec, hosts []string) []map[string]any {
 	var domains, suffixes, expressions, prefixes, sets []string
 	for _, host := range hosts {
-		if id, ok := spec.RuleSetID(host); ok {
+		if id, ok := s.RuleSetID(host); ok {
 			sets = append(sets, id)
 			continue
 		}

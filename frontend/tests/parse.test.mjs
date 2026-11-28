@@ -16,8 +16,9 @@ const FULL_SETTINGS = {
   allowLan: true,
   sysProxyOnStart: true,
   tun: { stack: 'mixed', strictRoute: true, excludes: ['10.0.0.0/8'], mtu: 9000, fakeIp: true },
-  dns: { remote: 'https://dns.google/dns-query', direct: 'https://223.5.5.5/dns-query', strategy: 'prefer_ipv4' },
+  dns: { remote: 'https://dns.google/dns-query', direct: 'https://223.5.5.5/dns-query', strategy: 'prefer_ipv4', servers: [], rules: [] },
   ruleSetAutoUpdate: true,
+  ruleSetUpdateHours: 24,
   subscriptionUA: 'ferry/0.1',
   subscriptionUpdateHours: 12,
   logLevel: 'debug',
@@ -144,8 +145,9 @@ test('parseSettings：不是对象时得到完整的默认结构', () => {
     allowLan: false,
     sysProxyOnStart: false,
     tun: { stack: '', strictRoute: false, excludes: [], mtu: 0, fakeIp: false },
-    dns: { remote: '', direct: '', strategy: '' },
+    dns: { remote: '', direct: '', strategy: '', servers: [], rules: [] },
     ruleSetAutoUpdate: false,
+    ruleSetUpdateHours: 24,
     subscriptionUA: '',
     subscriptionUpdateHours: 0,
     logLevel: 'info',
@@ -158,7 +160,7 @@ test('parseSettings：不是对象时得到完整的默认结构', () => {
 test('parseSettings：嵌套对象类型不符时单独回退', () => {
   const settings = parseSettings({ ...FULL_SETTINGS, tun: 'off', dns: null });
   assert.deepEqual(settings.tun, { stack: '', strictRoute: false, excludes: [], mtu: 0, fakeIp: false });
-  assert.deepEqual(settings.dns, { remote: '', direct: '', strategy: '' });
+  assert.deepEqual(settings.dns, { remote: '', direct: '', strategy: '', servers: [], rules: [] });
   assert.equal(settings.mixedPort, 7890);
 });
 

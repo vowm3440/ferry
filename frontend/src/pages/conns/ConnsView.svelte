@@ -22,6 +22,7 @@
   import { nav } from '../../lib/stores/nav.svelte';
   import { ruleDraft } from '../../lib/stores/rule-draft.svelte';
   import { toasts } from '../../lib/stores/toasts.svelte';
+  import ConnRuleDialog from './ConnRuleDialog.svelte';
   import ConnTable from './ConnTable.svelte';
 
   interface Props {
@@ -34,6 +35,7 @@
 
   /** 正在为它预填规则的连接 id。 */
   let drafting = $state('');
+  let quickConn = $state.raw<Connection | null>(null);
 
   const filtering = $derived(query.trim() !== '' || action !== 'all');
   const matched = $derived(sortConnections(filterConnections(conns.list, query, action)));
@@ -76,6 +78,11 @@
     } finally {
       drafting = '';
     }
+  }
+
+  function jumpToRule(ruleId: string): void {
+    ruleDraft.focusRule(ruleId);
+    nav.go('rules');
   }
 
   async function startCore(): Promise<void> {
@@ -151,8 +158,13 @@
         canCreateRule={caps.has(CAP_RULES)}
         onclose={(conn: Connection) => void closeOne(conn)}
         oncreaterule={(conn: Connection) => void createRule(conn)}
+        onquickrule={(conn: Connection) => (quickConn = conn)}
+        onjumprule={jumpToRule}
       />
     </div>
+    {#if quickConn !== null}
+      <ConnRuleDialog conn={quickConn} onclose={() => (quickConn = null)} onjumprule={jumpToRule} />
+    {/if}
     {#if capped.hidden > 0}
       <p class="cap-note num">
         {tr(

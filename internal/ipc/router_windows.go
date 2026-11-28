@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
+	"ferry/internal/spec"
 	"ferry/internal/telemetry"
 	"net"
 	"os"
@@ -315,6 +316,20 @@ func (r *Router) RuleSetUpdate(ctx context.Context, id string) error {
 		return svc.RuleSetUpdate(ctx, id)
 	}
 	return r.process.RuleSetUpdate(ctx, id)
+}
+
+func (r *Router) RuleSetSync(ctx context.Context, sets []spec.RuleSet) error {
+	if svc := r.serviceClient(); svc != nil {
+		return svc.RuleSetSync(ctx, sets)
+	}
+	return r.process.RuleSetSync(ctx, sets)
+}
+
+func (r *Router) RuleSetDelete(ctx context.Context, id string) error {
+	if svc := r.serviceClient(); svc != nil {
+		return svc.RuleSetDelete(ctx, id)
+	}
+	return r.process.RuleSetDelete(ctx, id)
 }
 
 var _ = errors.New

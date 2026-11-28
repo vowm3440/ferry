@@ -1,5 +1,7 @@
 package app
 
+import "ferry/internal/spec"
+
 type TunSettings struct {
 	Stack       string   `json:"stack"`
 	StrictRoute bool     `json:"strictRoute"`
@@ -8,9 +10,11 @@ type TunSettings struct {
 	FakeIP      bool     `json:"fakeIp"`
 }
 type DNSSettings struct {
-	Remote   string `json:"remote"`
-	Direct   string `json:"direct"`
-	Strategy string `json:"strategy"`
+	Remote   string           `json:"remote"`
+	Direct   string           `json:"direct"`
+	Strategy string           `json:"strategy"`
+	Servers  []spec.DNSServer `json:"servers,omitempty"`
+	Rules    []spec.DNSRule   `json:"rules,omitempty"`
 }
 type SettingsValue struct {
 	AutoStart               bool        `json:"autoStart"`
@@ -24,6 +28,7 @@ type SettingsValue struct {
 	Tun                     TunSettings `json:"tun"`
 	DNS                     DNSSettings `json:"dns"`
 	RuleSetAutoUpdate       bool        `json:"ruleSetAutoUpdate"`
+	RuleSetUpdateHours      int         `json:"ruleSetUpdateHours,omitempty"`
 	SubscriptionUA          string      `json:"subscriptionUA"`
 	SubscriptionUpdateHours int         `json:"subscriptionUpdateHours"`
 	LogLevel                string      `json:"logLevel"`

@@ -14,6 +14,8 @@ import {
 } from '../guard';
 import type {
   CoreState,
+  DnsRule,
+  DnsServer,
   DnsSettings,
   Group,
   Node,
@@ -139,17 +141,42 @@ function parseTun(value: unknown): TunSettings {
   };
 }
 
+function parseDnsServer(value: unknown): DnsServer {
+  const source = asRecord(value);
+  const detour = readString(source, 'detour');
+  return {
+    id: readString(source, 'id'),
+    name: readString(source, 'name'),
+    address: readString(source, 'address'),
+    ...(detour === '' ? {} : { detour }),
+  };
+}
+
+function parseDnsRule(value: unknown): DnsRule {
+  const source = asRecord(value);
+  return {
+    id: readString(source, 'id'),
+    name: readString(source, 'name'),
+    enabled: readBool(source, 'enabled', true),
+    domains: readStringArray(source, 'domains'),
+    server: readString(source, 'server'),
+  };
+}
+
 function parseDns(value: unknown): DnsSettings {
   const source = asRecord(value);
   return {
     remote: readString(source, 'remote'),
     direct: readString(source, 'direct'),
     strategy: readString(source, 'strategy'),
+    servers: readArray(source, 'servers').map(parseDnsServer).filter((item) => item.id !== ''),
+    rules: readArray(source, 'rules').map(parseDnsRule).filter((item) => item.id !== ''),
   };
 }
 
 export function parseSettings(value: unknown): SettingsValue {
   const source = asRecord(value);
+  const ruleSetUpdateHours = readNumber(source, 'ruleSetUpdateHours', 24);
   return {
     autoStart: readBool(source, 'autoStart'),
     startMinimized: readBool(source, 'startMinimized'),
@@ -162,6 +189,7 @@ export function parseSettings(value: unknown): SettingsValue {
     tun: parseTun(source.tun),
     dns: parseDns(source.dns),
     ruleSetAutoUpdate: readBool(source, 'ruleSetAutoUpdate'),
+    ruleSetUpdateHours: ruleSetUpdateHours > 0 ? ruleSetUpdateHours : 24,
     subscriptionUA: readString(source, 'subscriptionUA'),
     subscriptionUpdateHours: readNumber(source, 'subscriptionUpdateHours'),
     logLevel: readString(source, 'logLevel', 'info'),

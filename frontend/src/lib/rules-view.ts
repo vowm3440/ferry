@@ -156,13 +156,18 @@ function itemsProblem(items: readonly string[], check: (item: string) => string,
  * targetIds：当前可选的分组与节点 id。
  * groups / targetIds 为 null 表示对应列表没读到：跳过「是否存在」的检查，由后端裁决。
  */
-export function validateRuleForm(form: RuleForm, groups: readonly AppGroup[] | null, targetIds: readonly string[] | null): RuleFormProblems {
+export function validateRuleForm(
+  form: RuleForm,
+  groups: readonly AppGroup[] | null,
+  targetIds: readonly string[] | null,
+  customSetIds?: ReadonlySet<string> | null,
+): RuleFormProblems {
   const tooMany = t(`规则条件数量超过限制（每项最多 ${MAX_RULE_ITEMS} 个）`, `Too many conditions (maximum ${MAX_RULE_ITEMS} per field)`);
   const target = form.action !== 'proxy' || form.targetId === '' || form.targetId === DEFAULT_TARGET_ID || targetIds === null || targetIds.includes(form.targetId);
   return {
     name: nameProblem(form.name, t('请填写规则名称', 'Please enter a rule name')),
     apps: itemsProblem(parseLines(form.appsText), (item) => appProblem(item, groups), tooMany),
-    hosts: itemsProblem(parseTokens(form.hostsText), hostProblem, tooMany),
+    hosts: itemsProblem(parseTokens(form.hostsText), (item) => hostProblem(item, customSetIds), tooMany),
     ports: itemsProblem(parseTokens(form.portsText), portProblem, tooMany),
     target: target ? '' : t('规则目标不存在或不适用于此动作', 'Target does not exist or is invalid for this action'),
   };

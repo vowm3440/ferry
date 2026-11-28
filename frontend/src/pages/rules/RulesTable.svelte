@@ -15,11 +15,12 @@
   import RuleChips from './RuleChips.svelte';
 
   interface Props {
+    highlightedId?: string;
     onedit: (rule: Rule) => void;
     onremove: (rule: Rule) => void;
   }
 
-  let { onedit, onremove }: Props = $props();
+  let { highlightedId = '', onedit, onremove }: Props = $props();
 
   let host = $state<HTMLElement | null>(null);
 
@@ -86,7 +87,7 @@
       <tbody>
         {#each rules.list as rule, index (rule.id)}
           {@const pinned = rule.pinned === true}
-          <tr class:pinned class:off={!rule.enabled} data-rule-id={rule.id}>
+          <tr class:pinned class:off={!rule.enabled} class:highlighted={highlightedId !== '' && highlightedId === rule.id} data-rule-id={rule.id}>
             <td class="order keep">
               {#if pinned}
                 <span class="lock" title={tr('固定规则：不能编辑、停用或移动', 'Pinned rule: cannot edit, disable, or move')}><Icon name="lock" /><span class="sr-only">{tr('固定规则', 'Pinned rule')}</span></span>
@@ -186,6 +187,11 @@
 
   .tbl tr.pinned td {
     background: var(--muted-soft);
+  }
+
+  .tbl tr.highlighted td {
+    background: var(--accent-soft);
+    transition: background 0.3s ease;
   }
 
   .tbl tr.off td:not(.keep) {

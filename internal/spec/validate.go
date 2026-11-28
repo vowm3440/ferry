@@ -149,6 +149,7 @@ func groupDepth(id string, groups map[string]Group, visiting map[string]bool, de
 	return depth, depth > 16
 }
 
+func ValidID(value string) bool { return idPattern.MatchString(value) }
 func validID(value string) bool { return idPattern.MatchString(value) }
 func validLabel(value string) bool {
 	return strings.TrimSpace(value) != "" && len(value) <= 256 && !strings.ContainsFunc(value, unicode.IsControl)

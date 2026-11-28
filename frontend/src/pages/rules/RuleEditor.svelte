@@ -4,8 +4,8 @@
   由父组件用 {#if} 挂载：每次打开都是一份新的表单。
 -->
 <script lang="ts">
-  import { untrack } from 'svelte';
-  import { APP_GROUP_PREFIX, CAP_APP_GROUPS, CAP_RULE_SETS, DEFAULT_TARGET_ID } from '../../lib/api';
+  import { onMount, untrack } from 'svelte';
+  import { APP_GROUP_PREFIX, CAP_APP_GROUPS, CAP_RULE_SETS, CUSTOM_RULE_SET_PREFIX, DEFAULT_TARGET_ID } from '../../lib/api';
   import Dialog from '../../lib/components/Dialog.svelte';
   import Icon from '../../lib/components/Icon.svelte';
   import Segmented from '../../lib/components/Segmented.svelte';
@@ -37,8 +37,17 @@
   const creating = $derived(form.id === '');
   const netOpts = $derived((void i18n.locale, networkOptions()));
   const actOpts = $derived((void i18n.locale, actionOptions()));
-  const setRefs = $derived((void i18n.locale, ruleSetRefs()));
+  const customSets = $derived(rules.sets.filter((item) => item.custom === true));
+  const customSetIds = $derived(rules.setsLoaded ? new Set(customSets.map((item) => item.id)) : null);
+  const setRefs = $derived([
+    ...(void i18n.locale, ruleSetRefs()),
+    ...customSets.map((item) => ({ ref: CUSTOM_RULE_SET_PREFIX + item.id, id: item.id, label: item.name })),
+  ]);
   const targetIds = $derived([...nodes.list.groups.map((group) => group.id), ...nodes.list.nodes.map((node) => node.id)]);
+
+  onMount(() => {
+    if (caps.has(CAP_RULE_SETS) && !rules.setsLoaded && !rules.setsLoading) void rules.loadSets(false);
+  });
 
   /** 目标下拉框：默认代理分组、其余分组，以及这条规则当前指向的（可能是节点或已不存在的）目标。 */
   const targetOptions = $derived.by(() => {
@@ -78,7 +87,7 @@
     if (saving) return;
     // 列表没读到时不拿空列表当依据：只有确实读到了才在界面这一侧判断「不存在」。
     const knownGroups = caps.has(CAP_APP_GROUPS) && rules.groupsError === '' ? rules.groups : null;
-    problems = validateRuleForm(form, knownGroups, nodes.loaded ? targetIds : null);
+    problems = validateRuleForm(form, knownGroups, nodes.loaded ? targetIds : null, customSetIds);
     error = '';
     if (hasProblems({ ...problems })) return;
     const rule = ruleFromForm(form);

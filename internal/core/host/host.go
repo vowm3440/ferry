@@ -16,12 +16,15 @@ type Host struct {
 	current      *instance
 	state        State
 	traffic      Traffic
-	sampledAt    time.Time
-	rateUpload   int64
-	rateDownload int64
+	sampledAt     time.Time
+	rateUpload    int64
+	rateDownload  int64
+	totalUpload   int64
+	totalDownload int64
 	logs         *logBuffer
 	ruleSets     *rulesets.Manager
 	serviceMode  bool
+	hasIPv6      func() bool
 }
 
 var errCanceled = errors.New("操作已取消或超时")

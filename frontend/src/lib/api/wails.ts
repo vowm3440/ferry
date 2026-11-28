@@ -22,7 +22,11 @@ import {
 import {
   parseAppGroup,
   parseAppGroups,
+  parseApplyPresetResult,
+  parseCustomRuleSet,
+  parseCustomRuleSets,
   parseImportPreview,
+  parseLazyPresetOptions,
   parseRule,
   parseRuleSets,
   parseRuleTestResult,
@@ -31,7 +35,7 @@ import {
 import { loadRuntime, type WailsRuntime } from './runtime';
 import { EVENT_LOGS, type BackendEvent, type CoreState, type Group, type NodeList, type SettingsValue, type Subscription, type Traffic } from './types';
 import type { Connection, DeepLink, DeepLinkPreview, LanShare, LogEntry, ServiceStatus, SysProxyStatus, TunStatus, UpdateInfo, UpdateState } from './types-inspect';
-import type { AppGroup, ImportPreview, Rule, RuleSetInfo, RuleTestResult } from './types-rules';
+import type { AppGroup, ApplyPresetResult, CustomRuleSet, ImportPreview, LazyPresetOptions, Rule, RuleSetInfo, RuleTestResult } from './types-rules';
 
 /** Go 服务所在的包路径（ferry/internal/app）。 */
 const SERVICE_PACKAGE = 'ferry/internal/app';
@@ -89,11 +93,17 @@ export const METHODS = {
   rulesCreateFromConnection: method('Rules.CreateFromConnection'),
   rulesImport: method('Rules.Import'),
   rulesTest: method('Rules.Test'),
+  rulesDefaultLazyPreset: method('Rules.DefaultLazyPreset'),
+  rulesApplyLazyPreset: method('Rules.ApplyLazyPreset'),
   appGroupsList: method('AppGroups.List'),
   appGroupsSave: method('AppGroups.Save'),
+  appGroupsAddApp: method('AppGroups.AddApp'),
   appGroupsRemove: method('AppGroups.Remove'),
   ruleSetsList: method('RuleSets.List'),
   ruleSetsUpdate: method('RuleSets.Update'),
+  ruleSetsPresets: method('RuleSets.Presets'),
+  ruleSetsSave: method('RuleSets.Save'),
+  ruleSetsRemove: method('RuleSets.Remove'),
   settingsGet: method('Settings.Get'),
   settingsSet: method('Settings.Set'),
   capabilities: method('System.Capabilities'),
@@ -372,12 +382,24 @@ class WailsBackend implements Backend {
     return parseRuleTestResult(await this.#invoke(METHODS.rulesTest, application, host, port, network));
   }
 
+  async rulesDefaultLazyPreset(): Promise<LazyPresetOptions> {
+    return parseLazyPresetOptions(await this.#invoke(METHODS.rulesDefaultLazyPreset));
+  }
+
+  async rulesApplyLazyPreset(opts: LazyPresetOptions): Promise<ApplyPresetResult> {
+    return parseApplyPresetResult(await this.#invoke(METHODS.rulesApplyLazyPreset, opts));
+  }
+
   async appGroupsList(): Promise<AppGroup[]> {
     return parseAppGroups(await this.#invoke(METHODS.appGroupsList));
   }
 
   async appGroupsSave(group: AppGroup): Promise<AppGroup> {
     return parseAppGroup(await this.#invoke(METHODS.appGroupsSave, group));
+  }
+
+  async appGroupsAddApp(groupId: string, app: string): Promise<AppGroup> {
+    return parseAppGroup(await this.#invoke(METHODS.appGroupsAddApp, groupId, app));
   }
 
   appGroupsRemove(id: string): Promise<void> {
@@ -390,6 +412,18 @@ class WailsBackend implements Backend {
 
   ruleSetsUpdate(ids: string[]): Promise<void> {
     return this.#run(METHODS.ruleSetsUpdate, ids);
+  }
+
+  async ruleSetsPresets(): Promise<CustomRuleSet[]> {
+    return parseCustomRuleSets(await this.#invoke(METHODS.ruleSetsPresets));
+  }
+
+  async ruleSetsSave(rs: CustomRuleSet): Promise<CustomRuleSet> {
+    return parseCustomRuleSet(await this.#invoke(METHODS.ruleSetsSave, rs));
+  }
+
+  ruleSetsRemove(id: string): Promise<void> {
+    return this.#run(METHODS.ruleSetsRemove, id);
   }
 
   // ---- Settings ----

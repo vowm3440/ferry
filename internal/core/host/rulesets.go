@@ -21,7 +21,10 @@ func (h *Host) RuleSetList(context.Context) ([]telemetry.RuleSetInfo, error) {
 	}
 	result := []telemetry.RuleSetInfo{}
 	for _, v := range h.ruleSets.List() {
-		result = append(result, telemetry.RuleSetInfo{ID: v.ID, Name: v.Name, URL: v.URL, UpdatedAt: v.UpdatedAt, SizeBytes: v.SizeBytes, Status: v.Status})
+		result = append(result, telemetry.RuleSetInfo{
+			ID: v.ID, Name: v.Name, URL: v.URL, UpdatedAt: v.UpdatedAt, SizeBytes: v.SizeBytes,
+			Status: v.Status, Custom: v.Custom, AutoUpdate: v.AutoUpdate, UpdateHours: v.UpdateHours,
+		})
 	}
 	return result, nil
 }
@@ -33,7 +36,26 @@ func (h *Host) RuleSetUpdate(ctx context.Context, id string) error {
 	return h.ruleSets.Update(ctx, id)
 }
 
+func (h *Host) RuleSetSync(_ context.Context, sets []spec.RuleSet) error {
+	if h.ruleSets == nil {
+		return errors.New("规则集缓存未初始化")
+	}
+	return h.ruleSets.SyncCustom(sets)
+}
+
+func (h *Host) RuleSetDelete(_ context.Context, id string) error {
+	if h.ruleSets == nil {
+		return errors.New("规则集缓存未初始化")
+	}
+	return h.ruleSets.Delete(id)
+}
+
 func (h *Host) loadRuleSets(s spec.RunSpec, options *option.Options) error {
+	if h.ruleSets != nil && len(s.RuleSets) > 0 {
+		if err := h.ruleSets.SyncCustom(s.RuleSets); err != nil {
+			return err
+		}
+	}
 	for _, id := range s.ReferencedRuleSets() {
 		if h.ruleSets == nil {
 			return errors.New("规则引用的离线资源未安装，请先下载规则集")

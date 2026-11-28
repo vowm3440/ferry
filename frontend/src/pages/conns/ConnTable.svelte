@@ -6,7 +6,9 @@
   import Icon from '../../lib/components/Icon.svelte';
   import type { Connection } from '../../lib/api';
   import { i18n, tr } from '../../lib/i18n/index.svelte';
+  import { ruleNumber } from '../../lib/rules-view';
   import { nodes } from '../../lib/stores/nodes.svelte';
+  import { rules } from '../../lib/stores/rules.svelte';
   import {
     actionKind,
     actionLabel,
@@ -34,9 +36,11 @@
     canCreateRule: boolean;
     onclose: (conn: Connection) => void;
     oncreaterule: (conn: Connection) => void;
+    onquickrule?: (conn: Connection) => void;
+    onjumprule?: (ruleId: string) => void;
   }
 
-  let { rows, rates, now, closing, drafting, canCreateRule, onclose, oncreaterule }: Props = $props();
+  let { rows, rates, now, closing, drafting, canCreateRule, onclose, oncreaterule, onquickrule, onjumprule }: Props = $props();
 
   /** 出站 tag、节点 id、分组 id → 名称：内核报的是内部 tag，界面上显示用户认得的名字。 */
   const outboundNames = $derived(
@@ -69,6 +73,7 @@
         {@const outbound = outboundText(conn, outboundNames)}
         {@const rate = rates.get(conn.id)}
         {@const busy = closing.has(conn.id)}
+        {@const hitNo = conn.ruleId ? ruleNumber(rules.list, conn.ruleId) : 0}
         <tr>
           <td>
             <div class="app" title={conn.processPath || name}>
@@ -77,7 +82,20 @@
             </div>
           </td>
           <td><span class="clip host selectable" title={target}>{target}</span></td>
-          <td><span class="clip rule" title={conn.ruleName}>{ruleText(conn)}</span></td>
+          <td>
+            {#if canCreateRule && conn.ruleId && onjumprule}
+              <button
+                type="button"
+                class="rule-link clip"
+                title={conn.ruleDetail ? `${conn.ruleName}\n${conn.ruleDetail}` : conn.ruleName}
+                onclick={() => onjumprule(conn.ruleId!)}
+              >
+                {#if hitNo > 0}<span class="num">#{hitNo}</span> {/if}{ruleText(conn)}
+              </button>
+            {:else}
+              <span class="clip rule" title={conn.ruleDetail ? `${conn.ruleName}\n${conn.ruleDetail}` : conn.ruleName}>{ruleText(conn)}</span>
+            {/if}
+          </td>
           <td>
             <div class="chain">
               <span class="pill" class:proxy={kind === 'proxy'} class:direct={kind === 'direct'} class:block={kind === 'block'}>
@@ -95,6 +113,17 @@
           <td class="act">
             <div class="ops">
               {#if canCreateRule}
+                {#if onquickrule}
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    aria-label={tr(`快捷分流：${name} → ${target}`, `Quick route: ${name} -> ${target}`)}
+                    title={tr('一键建规则 / 加入应用组', 'Quick Rule / Add to App Group')}
+                    onclick={() => onquickrule(conn)}
+                  >
+                    <Icon name="zap" />
+                  </button>
+                {/if}
                 <button
                   type="button"
                   class="icon-btn"
@@ -170,6 +199,23 @@
 
   .rule {
     max-width: 150px;
+  }
+
+  .rule-link {
+    max-width: 160px;
+    padding: 2px 6px;
+    border: 0;
+    border-radius: 5px;
+    background: var(--muted-soft);
+    color: var(--text);
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .rule-link:hover {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
   }
 
   .chain {

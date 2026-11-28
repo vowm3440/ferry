@@ -7,8 +7,10 @@ type Connection struct {
 	ProcessPath string   `json:"processPath"`
 	Host        string   `json:"host"`
 	Port        int      `json:"port"`
+	Network     string   `json:"network,omitempty"`
 	RuleName    string   `json:"ruleName"`
 	RuleID      string   `json:"ruleId,omitempty"`
+	RuleDetail  string   `json:"ruleDetail,omitempty"`
 	Action      string   `json:"action"`
 	OutboundTag string   `json:"outboundTag"`
 	Chain       []string `json:"chain"`

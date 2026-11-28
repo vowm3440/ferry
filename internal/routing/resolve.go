@@ -41,7 +41,7 @@ func BuildResolve(s spec.RunSpec, r spec.Rule) (map[string]any, error) {
 		}
 	}
 	if len(domains) > 0 {
-		notMatched := logical("or", hostConditions(domains))
+		notMatched := logical("or", hostConditions(s, domains))
 		notMatched["invert"] = true
 		conditions = append(conditions, notMatched)
 	}

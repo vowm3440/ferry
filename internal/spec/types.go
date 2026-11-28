@@ -13,17 +13,29 @@ const (
 	MaxAppGroups        = 128
 	MaxExpandedRuleApps = 1024
 	MaxTotalRuleApps    = 16384
+	MaxCustomRuleSets   = 64
+	MaxDNSServers       = 32
+	MaxDNSRules         = 128
 )
 
 type RunSpec struct {
 	Nodes     []Node     `json:"nodes"`
 	Groups    []Group    `json:"groups"`
 	AppGroups []AppGroup `json:"appGroups,omitempty"`
+	RuleSets  []RuleSet  `json:"ruleSets,omitempty"`
 	Rules     []Rule     `json:"rules"`
 	DNS       DNS        `json:"dns"`
 	Inbound   Inbound    `json:"inbound"`
 	Mode      string     `json:"mode"`
 	Log       Log        `json:"log"`
+}
+
+type RuleSet struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	URL         string `json:"url"`
+	AutoUpdate  bool   `json:"autoUpdate,omitempty"`
+	UpdateHours int    `json:"updateHours,omitempty"`
 }
 
 type Node struct {
@@ -61,11 +73,28 @@ type AppGroup struct {
 	Apps []string `json:"apps"`
 }
 
+type DNSServer struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Detour  string `json:"detour,omitempty"`
+}
+
+type DNSRule struct {
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	Enabled bool     `json:"enabled"`
+	Domains []string `json:"domains"`
+	Server  string   `json:"server"`
+}
+
 type DNS struct {
-	Mode     string `json:"mode"`
-	Remote   string `json:"remote"`
-	Direct   string `json:"direct"`
-	Strategy string `json:"strategy"`
+	Mode     string      `json:"mode"`
+	Remote   string      `json:"remote"`
+	Direct   string      `json:"direct"`
+	Strategy string      `json:"strategy"`
+	Servers  []DNSServer `json:"servers,omitempty"`
+	Rules    []DNSRule   `json:"rules,omitempty"`
 }
 
 type Inbound struct {

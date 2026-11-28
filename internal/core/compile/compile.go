@@ -55,12 +55,12 @@ func compileInbounds(s spec.RunSpec) []any {
 	}
 	inbounds := []any{map[string]any{"type": "mixed", "tag": "__mixed", "listen": listen, "listen_port": s.Inbound.MixedPort}}
 	if s.Inbound.Tun.Enabled {
-		inbounds = append(inbounds, compileTunInbound(s.Inbound.Tun))
+		inbounds = append(inbounds, compileTunInbound(s.Inbound.Tun, s.DNS.Strategy == "ipv4_only"))
 	}
 	return inbounds
 }
 
-func compileTunInbound(t spec.Tun) map[string]any {
+func compileTunInbound(t spec.Tun, ipv4Only bool) map[string]any {
 	stack := t.Stack
 	if stack == "" {
 		stack = "mixed"
@@ -69,11 +69,15 @@ func compileTunInbound(t spec.Tun) map[string]any {
 	if mtu == 0 {
 		mtu = 9000
 	}
+	address := []string{"172.19.0.1/30", "fdfe:dcba:9876::1/126"}
+	if ipv4Only {
+		address = []string{"172.19.0.1/30"}
+	}
 	tun := map[string]any{
 		"type":           "tun",
 		"tag":            "__tun",
 		"interface_name": "FerryTun",
-		"address":        []string{"172.19.0.1/30", "fdfe:dcba:9876::1/126"},
+		"address":        address,
 		"mtu":            mtu,
 		"auto_route":     true,
 		"strict_route":   t.StrictRoute,

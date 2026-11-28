@@ -1,14 +1,14 @@
 /*
- * 「据此创建规则」的接力。
- *
- * 连接页拿到后端预填的规则（Rules.CreateFromConnection，尚未保存、id 为空）后放在这里，
- * 再跳到规则页；规则页挂载时取走并打开编辑器。取走即清空，不会重复弹出。
+ * 连接页与规则页之间的接力：
+ * 1. 「据此创建规则 / 一键建规则」传递未保存的规则草稿；
+ * 2. 「命中溯源」传递 ruleId，规则页挂载后自动滚动并高亮对应规则行。
  */
 
 import type { Rule } from '../api';
 
 class RuleDraftStore {
   pending = $state.raw<Rule | null>(null);
+  highlightRuleId = $state('');
 
   offer(rule: Rule): void {
     this.pending = rule;
@@ -18,6 +18,16 @@ class RuleDraftStore {
     const rule = this.pending;
     this.pending = null;
     return rule;
+  }
+
+  focusRule(ruleId: string): void {
+    this.highlightRuleId = ruleId;
+  }
+
+  takeHighlight(): string {
+    const id = this.highlightRuleId;
+    this.highlightRuleId = '';
+    return id;
   }
 }
 

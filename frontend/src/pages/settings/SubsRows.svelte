@@ -17,11 +17,17 @@
   let { value, uaError, disabled, onChange }: Props = $props();
 
   const hours = $derived((void i18n.locale, updateHoursOptions(value.subscriptionUpdateHours)));
+  const ruleSetHours = $derived((void i18n.locale, updateHoursOptions(value.ruleSetUpdateHours || 24)));
   const canAutomate = $derived(caps.has(CAP_AUTOMATION));
 
   function setHours(text: string): void {
     const parsed = parseUpdateHours(text);
     if (parsed !== null) onChange({ ...value, subscriptionUpdateHours: parsed });
+  }
+
+  function setRuleSetHours(text: string): void {
+    const parsed = parseUpdateHours(text);
+    if (parsed !== null) onChange({ ...value, ruleSetUpdateHours: parsed });
   }
 </script>
 
@@ -65,6 +71,21 @@
     onchange={(next: boolean) => onChange({ ...value, ruleSetAutoUpdate: next })}
   />
 </SettingRow>
+{#if canAutomate && value.ruleSetAutoUpdate}
+  <SettingRow title={tr('规则集自动更新间隔', 'Rule-Set Refresh Interval')}>
+    <select
+      class="select"
+      aria-label={tr('规则集自动更新间隔', 'Rule-Set Refresh Interval')}
+      value={String(value.ruleSetUpdateHours || 24)}
+      {disabled}
+      onchange={(event) => setRuleSetHours(event.currentTarget.value)}
+    >
+      {#each ruleSetHours as option (option.value)}
+        <option value={option.value}>{option.label}</option>
+      {/each}
+    </select>
+  </SettingRow>
+{/if}
 
 <style>
   .ua {

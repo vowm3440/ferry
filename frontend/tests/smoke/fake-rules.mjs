@@ -69,8 +69,12 @@ function portOk(port) {
   return parts.length === 1 || Number(parts[0]) < Number(parts[1]);
 }
 
-function hostProblem(host) {
+function hostProblem(host, customSets = []) {
   if (host.startsWith('geosite:') || host.startsWith('geoip:')) return host in SET_REFS ? '' : MSG.set;
+  if (host.startsWith('ruleset:')) {
+    const id = host.slice('ruleset:'.length);
+    return customSets.some((item) => item.id === id) ? '' : MSG.set;
+  }
   return isIp(host) || isCidr(host) || isRange(host) || isDomain(host) ? '' : MSG.host;
 }
 
@@ -91,7 +95,7 @@ function ruleProblem(rule, s) {
   const targets = ['', 'proxy', ...s.groups.map((group) => group.id), ...s.nodes.map((node) => node.id)];
   if (rule.action === 'proxy' ? !targets.includes(target) : target !== '') return MSG.target;
   if (![rule.apps, rule.hosts, rule.ports].every((list) => strings(list) && list.length <= 256)) return MSG.count;
-  return first(rule.apps, (app) => appProblem(app, s.appGroups)) || first(rule.hosts, hostProblem) || first(rule.ports, (port) => (portOk(port) ? '' : MSG.port));
+  return first(rule.apps, (app) => appProblem(app, s.appGroups)) || first(rule.hosts, (host) => hostProblem(host, s.customRuleSets ?? [])) || first(rule.ports, (port) => (portOk(port) ? '' : MSG.port));
 }
 
 function normalize(rule) {
@@ -151,7 +155,7 @@ function hostMatches(hosts, host, resolveBefore) {
 }
 
 export function fakeRules({ s, Rejected }) {
-  Object.assign(s, { rules: [], appGroups: [], rulesVersion: 0, ruleSeq: 0, connections: s.connections ?? [] });
+  Object.assign(s, { rules: [], appGroups: [], customRuleSets: [], rulesVersion: 0, ruleSeq: 0, connections: s.connections ?? [] });
   s.ruleSets = CATALOG.map((item) => ({ ...item, url: `https://rules.example.invalid/${item.id}.srs`, updatedAt: 0, sizeBytes: 0, status: 'missing' }));
 
   const all = () => [LAN_RULE, ...s.rules, DEFAULT_RULE];
@@ -245,6 +249,23 @@ export function fakeRules({ s, Rejected }) {
       }
       return fail(MSG.test);
     },
+    'Rules.DefaultLazyPreset'() {
+      return { replaceExisting: true, enableAds: true, enableAi: true, enableAppleSteam: true, enableCnSplit: true, enableSplitDns: true, intranetDns: '', intranetDomains: ['*.corp', '*.local', '*.lan', '*.internal', '*.home.arpa'] };
+    },
+    'Rules.ApplyLazyPreset'(opts) {
+      const add = [
+        ...(opts.enableAds ? [{ id: 'ads', name: '广告与跟踪拦截', url: 'https://rules.example.invalid/ads.srs', autoUpdate: true, updateHours: 24 }] : []),
+        ...(opts.enableAi ? [{ id: 'openai', name: 'OpenAI / ChatGPT', url: 'https://rules.example.invalid/openai.srs', autoUpdate: true, updateHours: 24 }] : []),
+      ];
+      for (const rs of add) {
+        if (!s.customRuleSets.some((item) => item.id === rs.id)) {
+          s.customRuleSets.push(rs);
+          s.ruleSets.push({ ...rs, updatedAt: 0, sizeBytes: 0, status: 'missing', custom: true });
+        }
+      }
+      s.rulesVersion += 1;
+      return { ruleCount: all().length, ruleSetCount: s.customRuleSets.length, appGroupCount: s.appGroups.length, dnsRuleCount: opts.enableSplitDns ? 2 : 0, missingRuleSets: [] };
+    },
     'AppGroups.List'() {
       return s.appGroups;
     },
@@ -259,6 +280,14 @@ export function fakeRules({ s, Rejected }) {
       s.rulesVersion += 1;
       return saved;
     },
+    'AppGroups.AddApp'(groupId, app) {
+      const cur = s.appGroups.find((item) => item.id === groupId);
+      if (!cur) fail(MSG.groupGone);
+      const next = { ...cur, apps: cur.apps.includes(app) ? cur.apps : [...cur.apps, app] };
+      s.appGroups = s.appGroups.map((item) => (item.id === groupId ? next : item));
+      s.rulesVersion += 1;
+      return next;
+    },
     'AppGroups.Remove'(id) {
       if (!s.appGroups.some((group) => group.id === id)) fail(MSG.groupGone);
       if (s.rules.some((rule) => rule.apps.includes(GROUP_PREFIX + id))) fail(MSG.groupUsed);
@@ -269,9 +298,29 @@ export function fakeRules({ s, Rejected }) {
       void refresh;
       return s.ruleSets;
     },
+    'RuleSets.Presets'() {
+      return [
+        { id: 'openai', name: 'OpenAI / ChatGPT', url: 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/openai.srs', autoUpdate: true, updateHours: 24 },
+        { id: 'apple-cn', name: 'Apple 国内直连', url: 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/apple-cn.srs', autoUpdate: true, updateHours: 24 },
+      ];
+    },
+    'RuleSets.Save'(rs) {
+      const item = { id: rs.id.trim(), name: rs.name.trim(), url: rs.url.trim(), autoUpdate: rs.autoUpdate === true, updateHours: rs.updateHours || 0 };
+      const exists = s.customRuleSets.some((cur) => cur.id === item.id);
+      s.customRuleSets = exists ? s.customRuleSets.map((cur) => (cur.id === item.id ? item : cur)) : [...s.customRuleSets, item];
+      const info = { ...item, updatedAt: 0, sizeBytes: 0, status: 'missing', custom: true };
+      s.ruleSets = s.ruleSets.some((cur) => cur.id === item.id) ? s.ruleSets.map((cur) => (cur.id === item.id ? { ...cur, ...item } : cur)) : [...s.ruleSets, info];
+      return item;
+    },
+    'RuleSets.Remove'(id) {
+      if (CATALOG.some((item) => item.id === id)) fail('内置规则集不可删除');
+      if (s.rules.some((rule) => rule.hosts.includes('ruleset:' + id))) fail('仍有路由规则或分流 DNS 引用此规则集，请先移除引用');
+      s.customRuleSets = s.customRuleSets.filter((cur) => cur.id !== id);
+      s.ruleSets = s.ruleSets.filter((cur) => cur.id !== id);
+    },
     'RuleSets.Update'(ids) {
-      if (!strings(ids) || ids.length < 1 || ids.length > 4) fail(MSG.setsCount);
-      if (!ids.every((id) => CATALOG.some((item) => item.id === id))) fail(MSG.setsUnknown);
+      if (!strings(ids) || ids.length < 1 || ids.length > 68) fail(MSG.setsCount);
+      if (!ids.every((id) => s.ruleSets.some((item) => item.id === id))) fail(MSG.setsUnknown);
       if (new Set(ids).size !== ids.length) fail(MSG.setsDup);
       // 固定的时间与大小：截图与断言都不依赖运行时刻。
       s.ruleSets = s.ruleSets.map((item) => (ids.includes(item.id) ? { ...item, status: 'ready', sizeBytes: 123456, updatedAt: 1794700800000 } : item));

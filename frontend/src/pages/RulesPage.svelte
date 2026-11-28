@@ -19,6 +19,7 @@
   import { toasts } from '../lib/stores/toasts.svelte';
   import AppGroupsTab from './rules/AppGroupsTab.svelte';
   import ImportDialog from './rules/ImportDialog.svelte';
+  import LazyPresetDialog from './rules/LazyPresetDialog.svelte';
   import RuleEditor from './rules/RuleEditor.svelte';
   import RuleSetsTab from './rules/RuleSetsTab.svelte';
   import RuleTester from './rules/RuleTester.svelte';
@@ -30,6 +31,8 @@
   /** 编辑器里的表单；null 表示没有打开。 */
   let editing = $state.raw<RuleForm | null>(null);
   let importing = $state(false);
+  let presetOpen = $state(false);
+  let highlightedId = $state('');
   let removing = $state.raw<Rule | null>(null);
   let removeBusy = $state(false);
   let removeError = $state('');
@@ -48,6 +51,19 @@
     // 连接页「据此创建规则」交过来的预填规则：尚未保存，id 为空。
     const draft = ruleDraft.take();
     if (draft !== null) editing = formFromRule({ ...draft, id: '' });
+    // 连接页「命中溯源」点过来的规则 ID：高亮并滚动定位。
+    const focusId = ruleDraft.takeHighlight();
+    if (focusId !== '') {
+      tab = 'rules';
+      highlightedId = focusId;
+      void tick().then(() => {
+        page?.querySelector<HTMLElement>(`[data-rule-id="${CSS.escape(focusId)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      const timer = setTimeout(() => {
+        if (highlightedId === focusId) highlightedId = '';
+      }, 3600);
+      return () => clearTimeout(timer);
+    }
   });
 
   function create(): void {
@@ -107,6 +123,7 @@
     <span class="sub num">{tr('自上而下匹配，首条命中生效', 'Evaluated top-down; first match wins')}</span>
     {#if available}
       <div class="actions">
+        <button type="button" class="btn ghost" data-lazy-preset aria-disabled={rules.busy} onclick={() => { if (!rules.busy) { tab = 'rules'; presetOpen = true; } }}><Icon name="zap" />{tr('懒人预设', 'Lazy Preset')}</button>
         <button type="button" class="btn ghost" aria-disabled={rules.busy} onclick={openImport}><Icon name="import" />{tr('导入', 'Import')}</button>
         <button type="button" class="btn primary" data-rule-create aria-disabled={rules.busy} onclick={create}><Icon name="plus" />{tr('新建规则', 'New Rule')}</button>
       </div>
@@ -158,7 +175,7 @@
             <button type="button" class="btn sm" onclick={() => void rules.refresh()}>{tr('重试', 'Retry')}</button>
           </div>
         {/if}
-        <RulesTable onedit={(rule) => (editing = formFromRule(rule))} onremove={askRemove} />
+        <RulesTable {highlightedId} onedit={(rule) => (editing = formFromRule(rule))} onremove={askRemove} />
         {#if core.running}
           <p class="muted apply-note">{tr('改动规则会立即应用：内核运行中会短暂重启，已有的连接会断开。', 'Rule changes apply immediately: running core will briefly restart and drop active connections.')}</p>
         {/if}
@@ -171,6 +188,9 @@
     {/if}
     {#if importing}
       <ImportDialog onclose={() => (importing = false)} />
+    {/if}
+    {#if presetOpen}
+      <LazyPresetDialog onclose={() => (presetOpen = false)} />
     {/if}
     <ConfirmDialog
       open={removing !== null}

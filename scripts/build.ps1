@@ -1,7 +1,8 @@
-param([string]$Version = '0.2.0', [switch]$SkipFrontend, [switch]$DevTools)
+param([string]$Version = '0.3.0', [string]$BinDir = 'bin', [switch]$SkipFrontend, [switch]$DevTools)
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw "Invalid build version: $Version" }
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$resolvedBin = if ([System.IO.Path]::IsPathRooted($BinDir)) { $BinDir } else { Join-Path $projectRoot $BinDir }
 Push-Location -LiteralPath $projectRoot
 try {
     $env:CGO_ENABLED = '0'
@@ -28,8 +29,8 @@ try {
     Get-ChildItem -LiteralPath $assetSource | Copy-Item -Destination $assetTarget -Recurse
     # Desktop WebView always uses the Wails bridge; strip unreachable browser-demo chunks.
     Get-ChildItem -Path (Join-Path $assetTarget 'assets') -Filter 'demo-*.js' -File -ErrorAction SilentlyContinue | Remove-Item -Force
-    New-Item -ItemType Directory -Path (Join-Path $projectRoot 'bin') -Force | Out-Null
-    Remove-Item -Path (Join-Path $projectRoot 'bin\*.old') -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $resolvedBin -Force | Out-Null
+    Remove-Item -Path (Join-Path $resolvedBin '*.old') -Force -ErrorAction SilentlyContinue
     function Step-AsideIfLocked([string]$exePath) {
         if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) { return }
         try {
@@ -42,20 +43,23 @@ try {
     }
     $coreLdflags = "-s -w -X ferry/internal/release.Version=$Version"
     $guiLdflags = "-s -w -H windowsgui -X ferry/internal/release.Version=$Version"
-    Step-AsideIfLocked (Join-Path $projectRoot 'bin\ferry-core.exe')
-    & go build -trimpath -tags 'with_gvisor,with_quic,with_utls,with_clash_api,with_wireguard' -ldflags $coreLdflags -o bin/ferry-core.exe ./cmd/ferry-core
+    $coreOut = Join-Path $resolvedBin 'ferry-core.exe'
+    $guiOut = Join-Path $resolvedBin 'Ferry.exe'
+    Step-AsideIfLocked $coreOut
+    & go build -trimpath -tags 'with_gvisor,with_quic,with_utls,with_clash_api,with_wireguard' -ldflags $coreLdflags -o $coreOut ./cmd/ferry-core
     if ($LASTEXITCODE -ne 0) { throw 'Core build failed.' }
-    Step-AsideIfLocked (Join-Path $projectRoot 'bin\Ferry.exe')
-    & go build -trimpath -ldflags $guiLdflags -o bin/Ferry.exe ./cmd/ferry
+    Step-AsideIfLocked $guiOut
+    & go build -trimpath -ldflags $guiLdflags -o $guiOut ./cmd/ferry
     if ($LASTEXITCODE -ne 0) { throw 'GUI build failed.' }
     if ($DevTools) {
         # Local end-to-end testing only: honours FERRY_DEVTOOLS_PORT (unauthenticated WebView2
         # debugging port). Separate file name so that package.ps1 can never ship it.
-        Step-AsideIfLocked (Join-Path $projectRoot 'bin\Ferry-devtools.exe')
-        & go build -trimpath -tags 'devtools' -ldflags $guiLdflags -o bin/Ferry-devtools.exe ./cmd/ferry
+        $devOut = Join-Path $resolvedBin 'Ferry-devtools.exe'
+        Step-AsideIfLocked $devOut
+        & go build -trimpath -tags 'devtools' -ldflags $guiLdflags -o $devOut ./cmd/ferry
         if ($LASTEXITCODE -ne 0) { throw 'GUI devtools build failed.' }
     }
     # GPL-3.0: binaries must always travel with the licence text and third-party notices.
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE'),(Join-Path $projectRoot 'NOTICE') -Destination (Join-Path $projectRoot 'bin') -Force
-    Get-Item -LiteralPath bin/Ferry.exe,bin/ferry-core.exe | Select-Object Name,Length
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE'),(Join-Path $projectRoot 'NOTICE') -Destination $resolvedBin -Force
+    Get-Item -LiteralPath $guiOut,$coreOut | Select-Object Name,Length
 } finally { Pop-Location }

@@ -199,3 +199,24 @@ export function durationText(startAt: number, now: number): string {
   const clock = `${pad2(Math.floor((total % 3600) / 60))}:${pad2(total % 60)}`;
   return hours > 0 ? `${hours}:${clock}` : clock;
 }
+
+/** 从子域名提取泛域名通配符（例如 api2.cursor.sh -> *.cursor.sh）；IP 或单段域名返回空串。 */
+export function wildcardDomainOf(host: string): string {
+  const trimmed = host.trim().toLowerCase().replace(/\.$/, '');
+  if (trimmed === '' || trimmed.includes(':') || /^\d+(\.\d+){3}$/.test(trimmed)) return '';
+  const parts = trimmed.split('.');
+  if (parts.length < 2) return '';
+  if (parts.length === 2) return `*.${trimmed}`;
+  // 常见二级后缀如 .com.cn / .co.jp / .org.cn 保留三段。
+  const tail2 = `${parts[parts.length - 2]}.${parts[parts.length - 1]}`;
+  const multiTld = ['com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn', 'co.uk', 'co.jp', 'com.hk', 'com.tw'];
+  if (parts.length >= 3 && multiTld.includes(tail2)) {
+    return `*.${parts.slice(-3).join('.')}`;
+  }
+  return `*.${parts.slice(-2).join('.')}`;
+}
+
+/** 推荐的「纠偏」动作：当前走直连时建议改代理，当前走代理时建议改直连。 */
+export function suggestedActionFor(conn: Connection): 'proxy' | 'direct' {
+  return conn.action === 'proxy' ? 'direct' : 'proxy';
+}

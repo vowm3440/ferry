@@ -11,8 +11,30 @@ import (
 type Settings struct{ session *Session }
 
 func defaultSettings() SettingsValue {
-	v := SettingsValue{Language: "zh-CN", Theme: "system", SubscriptionUA: "clash.meta", SubscriptionUpdateHours: 24, UpdateChannel: "stable", ClashAPIMode: "random"}
+	v := SettingsValue{Language: "zh-CN", Theme: "system", SubscriptionUA: "clash.meta", SubscriptionUpdateHours: 24, RuleSetUpdateHours: 24, UpdateChannel: "stable", ClashAPIMode: "random"}
 	return fromSpec(v, spec.Default())
+}
+
+func cloneDNSServers(servers []spec.DNSServer) []spec.DNSServer {
+	if len(servers) == 0 {
+		return []spec.DNSServer{}
+	}
+	return slices.Clone(servers)
+}
+
+func cloneDNSRules(rules []spec.DNSRule) []spec.DNSRule {
+	if len(rules) == 0 {
+		return []spec.DNSRule{}
+	}
+	out := make([]spec.DNSRule, len(rules))
+	for i, r := range rules {
+		r.Domains = slices.Clone(r.Domains)
+		if r.Domains == nil {
+			r.Domains = []string{}
+		}
+		out[i] = r
+	}
+	return out
 }
 
 func fromSpec(v SettingsValue, s spec.RunSpec) SettingsValue {
@@ -22,7 +44,13 @@ func fromSpec(v SettingsValue, s spec.RunSpec) SettingsValue {
 	if v.Tun.Excludes == nil {
 		v.Tun.Excludes = []string{}
 	}
-	v.DNS = DNSSettings{Remote: s.DNS.Remote, Direct: s.DNS.Direct, Strategy: s.DNS.Strategy}
+	v.DNS = DNSSettings{
+		Remote: s.DNS.Remote, Direct: s.DNS.Direct, Strategy: s.DNS.Strategy,
+		Servers: cloneDNSServers(s.DNS.Servers), Rules: cloneDNSRules(s.DNS.Rules),
+	}
+	if v.RuleSetUpdateHours == 0 {
+		v.RuleSetUpdateHours = 24
+	}
 	v.LogLevel = s.Log.Level
 	return v
 }
@@ -32,6 +60,11 @@ func (s *Settings) Get(context.Context) (SettingsValue, error) {
 	defer s.session.mu.Unlock()
 	v := s.session.settings
 	v.Tun.Excludes = slices.Clone(v.Tun.Excludes)
+	v.DNS.Servers = cloneDNSServers(v.DNS.Servers)
+	v.DNS.Rules = cloneDNSRules(v.DNS.Rules)
+	if v.RuleSetUpdateHours == 0 {
+		v.RuleSetUpdateHours = 24
+	}
 	return v, nil
 }
 
@@ -39,27 +72,16 @@ func (s *Settings) Set(ctx context.Context, v SettingsValue) error {
 	if err := validateSettings(v); err != nil {
 		return err
 	}
-	if v.Tun.Excludes == nil {
-		v.Tun.Excludes = []string{}
-	}
+	v = normalizeSettingsInput(v)
 	s.session.mu.Lock()
 	defer s.session.mu.Unlock()
 	if err := s.session.requireStopped(ctx, "请先停止内核，再修改设置"); err != nil {
 		return err
 	}
-	config := s.session.config
-	config.Inbound.MixedPort = uint16(v.MixedPort)
-	config.Inbound.AllowLAN = v.AllowLAN
-	config.Inbound.Tun = spec.Tun{Stack: v.Tun.Stack, StrictRoute: v.Tun.StrictRoute, Excludes: slices.Clone(v.Tun.Excludes), MTU: v.Tun.MTU}
-	config.DNS = spec.DNS{Mode: "redirhost", Remote: v.DNS.Remote, Direct: v.DNS.Direct, Strategy: v.DNS.Strategy}
-	if v.Tun.FakeIP {
-		config.DNS.Mode = "fakeip"
-	}
-	config.Log.Level = v.LogLevel
+	config := applySettingsToConfig(s.session.config, v)
 	if err := config.Validate(); err != nil {
-		return errors.New("设置无效，请检查 DNS、端口和入站设置")
+		return err
 	}
-	v.Tun.Excludes = slices.Clone(v.Tun.Excludes)
 	next := s.session.snapshot()
 	next.Config, next.Settings = config, v
 	syncInheritedSubUA(&next)
@@ -75,6 +97,34 @@ func (s *Settings) Set(ctx context.Context, v SettingsValue) error {
 		langHook(v.Language)
 	}
 	return nil
+}
+
+func normalizeSettingsInput(v SettingsValue) SettingsValue {
+	v.Tun.Excludes = slices.Clone(v.Tun.Excludes)
+	if v.Tun.Excludes == nil {
+		v.Tun.Excludes = []string{}
+	}
+	v.DNS.Servers = cloneDNSServers(v.DNS.Servers)
+	v.DNS.Rules = cloneDNSRules(v.DNS.Rules)
+	if v.RuleSetUpdateHours == 0 {
+		v.RuleSetUpdateHours = 24
+	}
+	return v
+}
+
+func applySettingsToConfig(config spec.RunSpec, v SettingsValue) spec.RunSpec {
+	config.Inbound.MixedPort = uint16(v.MixedPort)
+	config.Inbound.AllowLAN = v.AllowLAN
+	config.Inbound.Tun = spec.Tun{Stack: v.Tun.Stack, StrictRoute: v.Tun.StrictRoute, Excludes: slices.Clone(v.Tun.Excludes), MTU: v.Tun.MTU}
+	config.DNS = spec.DNS{
+		Mode: "redirhost", Remote: v.DNS.Remote, Direct: v.DNS.Direct, Strategy: v.DNS.Strategy,
+		Servers: cloneDNSServers(v.DNS.Servers), Rules: cloneDNSRules(v.DNS.Rules),
+	}
+	if v.Tun.FakeIP {
+		config.DNS.Mode = "fakeip"
+	}
+	config.Log.Level = v.LogLevel
+	return config
 }
 
 func (s *Settings) commitSettingsWithAutoStart(next savedSession, autoStart bool) error {
@@ -114,6 +164,9 @@ func validateSettings(v SettingsValue) error {
 	}
 	if v.SubscriptionUpdateHours < 1 || v.SubscriptionUpdateHours > 720 || len(v.SubscriptionUA) > 256 {
 		return errors.New("订阅设置无效")
+	}
+	if v.RuleSetUpdateHours != 0 && (v.RuleSetUpdateHours < 1 || v.RuleSetUpdateHours > 720) {
+		return errors.New("规则集刷新间隔须在 1 到 720 小时之间")
 	}
 	if v.UpdateChannel != "stable" && v.UpdateChannel != "beta" {
 		return errors.New("更新通道无效")

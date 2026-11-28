@@ -48,6 +48,7 @@ type Session struct {
 	serviceRestarter func(startCore, restoreProxy bool) error
 	updater          updateRuntime
 	lastRuleSetSync  int64
+	customSetSync    map[string]int64
 }
 
 func NewSession(remote Remote) *Session {
